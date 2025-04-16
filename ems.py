@@ -1,40 +1,31 @@
-import tkinter as tk
-from tkinter import messagebox
-from login import LoginPage
-from empPage import EmployeePage
-from ownerPage import OwnerPage
-from manageEmployees import ManageEmployees
+from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
+from PyQt5.QtGui import QIcon
+import sys
+from login import LoginForm
 
-
-class EMSApp(tk.Tk):
+class EMSApplication(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title("EMS Application")
-        # made it full screen
-        self.geometry("800x600")
-        #todo put this back to normal
-        # self.attributes("-fullscreen", True)
-        self.configure(bg="white")
+        self.setWindowTitle("EMS Application")
+        self.setWindowIcon(QIcon("icon.jpsg"))  # Set the application icon
+        self.showFullScreen()  # Start in full-screen mode
 
-        self.container = tk.Frame(self)
-        self.container.pack(side="top", fill="both", expand=True)
-        self.container.grid_rowconfigure(0, weight=1)
-        self.container.grid_columnconfigure(0, weight=1)
+        # Create a stacked widget to manage different screens
+        self.central_widget = QStackedWidget()
+        self.setCentralWidget(self.central_widget)
 
-        self.frames = {}
-        for F in (LoginPage, EmployeePage, OwnerPage, ManageEmployees):
-            page_name = F.__name__
-            frame = F(parent=self.container, controller=self)
-            self.frames[page_name] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+        # Add the login screen as the default screen
+        self.login_screen = LoginForm()
+        self.central_widget.addWidget(self.login_screen)
 
-        self.show_frame("LoginPage")
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName("EMS")  # Set the application name for the Dock
+    app.setWindowIcon(QIcon("clwbeach.jpg"))  # Set the Dock icon
+    main_window = EMSApplication()
+    main_window.show()
 
-    def show_frame(self, page_name):
-        frame = self.frames[page_name]
-        frame.tkraise()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
-    app = EMSApp()
-    app.mainloop()
-
+    main()
