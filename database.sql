@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS employee(
     lastName varchar(15) Null,
     userName varchar(15),
     password varchar(25) null,
+    lastStoreID INT,
     role enum('employee','manager','owner')
+    FOREIGN KEY (lastStoreID) REFERENCES Store(store_id)
     );
 insert into employee(firstName, lastName, userName, password, role)
 values('Daniel','is the best','admin','admin','owner');
