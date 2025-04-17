@@ -123,7 +123,7 @@ class LoginForm(QWidget):
 		print("Redirecting to Employee Page...")  # Debug print
 		employee_page = QWidget()
 		employee_ui = EmployeePage()
-		employee_ui.setupUi(employee_page)
+		employee_ui.setupUi(employee_page, self.stacked_widget)  # Pass QStackedWidget
 		self.stacked_widget.addWidget(employee_page)
 		self.stacked_widget.setCurrentWidget(employee_page)
 

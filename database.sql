@@ -79,3 +79,40 @@ CREATE TABLE if not exists Bonuses (
     FOREIGN KEY (employee_id) REFERENCES Employee(employee_id),
     FOREIGN KEY (store_id) REFERENCES Store(store_id)
 );
+
+
+INSERT INTO employee (firstName, lastName, userName, password, role) VALUES
+('Dan', 'Jones', 'admin', 'admin', 'owner'),
+('John', 'Doe', 'johndoe', 'password123', 'manager'),
+('Jane', 'Smith', 'janesmith', 'password456', 'employee'),
+('Mike', 'Jones', 'mikejones', 'password789', 'employee');
+
+INSERT INTO employee_close (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id) VALUES
+('Dan', 'Jones', 'Beach Store', 1000.50, 150.00, 500.00, 'Everything is running smoothly.', 1),
+('John', 'Doe', 'City Store', 850.00, 200.00, 300.00, 'Needs more staff.', 2),
+('Jane', 'Smith', 'Downtown Store', 900.00, 120.00, 350.00, 'Some items went out of stock.', 3),
+('Mike', 'Jones', 'Suburb Store', 950.00, 180.00, 400.00, 'Good sales this week.', 4);
+
+INSERT INTO Store (store_name, location) VALUES
+('Beach Store', 'Clearwater Beach'),
+('City Store', 'Downtown City Center'),
+('Downtown Store', 'Main Street'),
+('Suburb Store', 'Greenfield Suburbs');
+
+INSERT INTO clockTable (employee_id, store_id, clock_in, clock_out, reg_in, reg_out) VALUES
+(1, 1, '2025-04-16 09:00:00', '2025-04-16 17:00:00', 8.00, 0.00),
+(2, 2, '2025-04-16 08:00:00', '2025-04-16 16:00:00', 8.00, 0.00),
+(3, 3, '2025-04-16 10:00:00', '2025-04-16 18:00:00', 8.00, 0.00),
+(4, 4, '2025-04-16 11:00:00', '2025-04-16 19:00:00', 8.00, 0.00);
+
+INSERT INTO Invoice (company_name, amount_due, due_date, paid_status, payment_date) VALUES
+('ABC Corp', 1500.00, '2025-05-01', 'unpaid', NULL),
+('XYZ Ltd', 2000.00, '2025-05-15', 'paid', '2025-04-10'),
+('Global Tech', 2500.00, '2025-06-01', 'unpaid', NULL),
+('QuickShop Inc.', 1200.00, '2025-05-05', 'paid', '2025-04-20');
+
+INSERT INTO Bonuses (employee_id, store_id, week_start, week_end, total_sales, bonus_percentage) VALUES
+(1, 1, '2025-04-01', '2025-04-07', 10000.00, 5.00),
+(2, 2, '2025-04-01', '2025-04-07', 12000.00, 4.50),
+(3, 3, '2025-04-01', '2025-04-07', 11000.00, 5.50),
+(4, 4, '2025-04-01', '2025-04-07', 9000.00, 4.00);

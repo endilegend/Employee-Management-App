@@ -2,7 +2,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class Ui_Dialog(object):
-    def setupUi(self, Dialog):
+    def setupUi(self, Dialog, stacked_widget=None):
+        self.stacked_widget = stacked_widget  # Reference to QStackedWidget for navigation
         Dialog.setObjectName("Dialog")
         Dialog.resize(900, 600)  # Increased default window size
         
@@ -195,11 +196,19 @@ class Ui_Dialog(object):
         self.closeViewBtn.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.btnClose))
         self.historyViewBtn.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.btnHistory))
         
+        # Connect the "Sign-Out" button to the sign-out functionality
+        self.signOutBtn.clicked.connect(self.sign_out)
+
         # Set the default frame to the Clock-In frame
         self.stackedWidget.setCurrentWidget(self.btnClockIn)
         
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
+
+    def sign_out(self):
+        print("Signing out...")  # Debug print
+        if self.stacked_widget:
+            self.stacked_widget.setCurrentIndex(0)  # Redirect to the login screen
 
     def create_clock_in_frame(self):
         self.btnClockIn = QtWidgets.QWidget()
@@ -498,5 +507,3 @@ if __name__ == "__main__":
     Dialog.show()
     sys.exit(app.exec_())
 
-#endi
-#e
