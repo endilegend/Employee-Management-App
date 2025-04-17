@@ -530,12 +530,21 @@ class Ui_OwnerDialog(object):
         id_label.setStyleSheet(label_style)
         form_layout.addRow(id_label, self.invoice_id_input)
 
-        # Date input
+        # Recieved date input
+        self.recieved_date_input = QtWidgets.QDateEdit()
+        self.recieved_date_input.setCalendarPopup(True)
+        self.recieved_date_input.setDate(QtCore.QDate.currentDate())
+        self.recieved_date_input.setStyleSheet(input_style)
+        recieved_date_label = QtWidgets.QLabel("Recieved Date")
+        recieved_date_label.setStyleSheet(label_style)
+        form_layout.addRow(recieved_date_label, self.recieved_date_input)
+
+        # Due date input
         self.date_input = QtWidgets.QDateEdit()
         self.date_input.setCalendarPopup(True)
         self.date_input.setDate(QtCore.QDate.currentDate())
         self.date_input.setStyleSheet(input_style)
-        date_label = QtWidgets.QLabel("Date")
+        date_label = QtWidgets.QLabel("Due Date")
         date_label.setStyleSheet(label_style)
         form_layout.addRow(date_label, self.date_input)
 
@@ -1474,10 +1483,16 @@ class Ui_OwnerDialog(object):
         """Handle the invoice submission."""
         print("Attempting to submit invoice...")
         
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+        
         # Validate inputs
         try:
             invoice_id = int(self.invoice_id_input.text())
-            date = self.date_input.date().toPyDate()
+            recievedDate = self.recieved_date_input.date().toPyDate()  
+            dueDate = self.date_input.date().toPyDate()
             company = self.company_input.text().strip()
             paid_status = "paid" if self.paid_status_combo.currentText() == "Yes" else "unpaid"
             amount = float(self.amount_input.text())
@@ -1501,16 +1516,18 @@ class Ui_OwnerDialog(object):
         try:
             query = """
                 INSERT INTO Invoice 
-                (invoice_id, company_name, amount_due, due_date, paid_status, payment_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (invoice_id, company_name, amount_due, recieved_date, due_date, paid_status, payment_date, store_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             data = (
                 invoice_id,
                 company,
                 amount,
-                date,
+                recievedDate,
+                dueDate,
                 paid_status,
-                date if paid_status == "paid" else None
+                dueDate if paid_status == "paid" else None,
+                self.store_id
             )
             print(f"Inserting invoice record. Query: {query}, Data: {data}")
             success = connect(query, data)
@@ -1520,6 +1537,7 @@ class Ui_OwnerDialog(object):
                 QtWidgets.QMessageBox.information(None, "Success", "Invoice submitted successfully.")
                 # Clear input fields
                 self.invoice_id_input.clear()
+                self.recieved_date_input.setDate(QtCore.QDate.currentDate())  # Reset received date
                 self.date_input.setDate(QtCore.QDate.currentDate())
                 self.company_input.clear()
                 self.paid_status_combo.setCurrentIndex(0)
@@ -1536,6 +1554,11 @@ class Ui_OwnerDialog(object):
     def submit_expense(self):
         """Handle the expense submission."""
         print("Attempting to submit expense...")
+        
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
         
         # Validate inputs
         try:
@@ -1557,13 +1580,15 @@ class Ui_OwnerDialog(object):
         try:
             query = """
                 INSERT INTO expenses 
-                (expense_type, expense_date, employee_id)
-                VALUES (%s, %s, %s)
+                (expense_type, expense_date, employee_id, store_id, expense_value)
+                VALUES (%s, %s, %s, %s, %s)
             """
             data = (
                 expense_type,
                 expense_date,
-                self.employee_id
+                self.employee_id,
+                self.store_id,
+                expense_value
             )
             print(f"Inserting expense record. Query: {query}, Data: {data}")
             success = connect(query, data)
@@ -1587,6 +1612,11 @@ class Ui_OwnerDialog(object):
         """Handle the merchandise submission."""
         print("Attempting to submit merchandise...")
         
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+
         # Validate inputs
         try:
             merchandise_type = self.merchandise_type_input.text().strip()
@@ -1601,9 +1631,6 @@ class Ui_OwnerDialog(object):
             if unit_price <= 0:
                 raise ValueError("Unit price must be greater than 0")
 
-            # Calculate total price
-            total_price = quantity * unit_price
-
         except ValueError as e:
             QtWidgets.QMessageBox.warning(None, "Invalid Input", str(e))
             print(f"Input validation error: {e}")
@@ -1613,15 +1640,16 @@ class Ui_OwnerDialog(object):
         try:
             query = """
                 INSERT INTO merchandise 
-                (merchandise_type, merchandise_date, quantity, unitPrice, totalPrice)
-                VALUES (%s, %s, %s, %s, %s)
+                (merchandise_type, merchandise_date, quantity, unitPrice, employee_id, store_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """
             data = (
                 merchandise_type,
                 merchandise_date,
                 quantity,
                 unit_price,
-                total_price
+                self.employee_id,
+                self.store_id
             )
             print(f"Inserting merchandise record. Query: {query}, Data: {data}")
             success = connect(query, data)
