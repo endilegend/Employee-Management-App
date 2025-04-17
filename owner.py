@@ -1935,7 +1935,7 @@ class Ui_OwnerDialog(object):
                 width: 30px;
             }
         """)
-        self.populate_expenses_stores()  # Use a separate method for expenses stores
+        self.populate_expenses_stores()  # Populate stores immediately
         controls_layout.addWidget(self.expenses_store_combo)
 
         # Week navigation
@@ -2104,6 +2104,9 @@ class Ui_OwnerDialog(object):
                 self.expenses_store_combo.clear()
                 for store in results:
                     self.expenses_store_combo.addItem(store[1], store[0])  # Store name and ID
+                # Set the first store as default
+                if results:
+                    self.expenses_store_combo.setCurrentIndex(0)
         except Exception as e:
             print(f"Error populating expenses stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
@@ -2180,7 +2183,11 @@ class Ui_OwnerDialog(object):
                 week_end.toPyDate()
             )
             
+            print(f"Loading expenses history with query: {query}")
+            print(f"Data: {data}")
+            
             results = connect(query, data)
+            print(f"Query results: {results}")
             
             # Clear existing table data
             self.expenses_table.setRowCount(0)
