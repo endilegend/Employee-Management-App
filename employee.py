@@ -628,8 +628,104 @@ class Ui_Dialog(object):
         """)
         layout.addWidget(self.closeSubmitBtn)
         
+        # Connect the submit button to the close_submit method
+        self.closeSubmitBtn.clicked.connect(self.close_submit)
+        
         layout.addStretch()
         self.stackedWidget.addWidget(self.btnClose)
+
+    def close_submit(self):
+        """Handle the close register submission."""
+        print(f"Attempting to submit close register for employee ID: {self.employee_id}")
+        
+        if not self.employee_id:
+            QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
+            print("Error: Employee ID is missing")
+            return
+
+        if not self.store_id:
+            QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+
+        # Get store name
+        try:
+            query = "SELECT store_name FROM Store WHERE store_id = %s"
+            data = (self.store_id,)
+            print(f"Fetching store name. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Store name results: {results}")
+            
+            if not results:
+                QMessageBox.critical(None, "Error", "Could not find store information.")
+                print("Error: Store not found")
+                return
+                
+            store_name = results[0][0]
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"Failed to get store information: {e}")
+            print(f"Error getting store information: {e}")
+            return
+
+        # Get employee name
+        try:
+            query = "SELECT firstName, lastName FROM employee WHERE employee_id = %s"
+            data = (self.employee_id,)
+            print(f"Fetching employee name. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Employee name results: {results}")
+            
+            if not results:
+                QMessageBox.critical(None, "Error", "Could not find employee information.")
+                print("Error: Employee not found")
+                return
+                
+            first_name = results[0][0]
+            last_name = results[0][1]
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"Failed to get employee information: {e}")
+            print(f"Error getting employee information: {e}")
+            return
+
+        # Validate and get input values
+        try:
+            credit = float(self.closeCreditInput.text()) if self.closeCreditInput.text() else 0.0
+            cash_in_envelope = float(self.closeCashInEnvInput.text()) if self.closeCashInEnvInput.text() else 0.0
+            expense = float(self.closeExpenseInput.text()) if self.closeExpenseInput.text() else 0.0
+            comments = self.CloseCommentsInput.text() if self.CloseCommentsInput.text() else ""
+            
+            print(f"Input values - Credit: ${credit:.2f}, Cash: ${cash_in_envelope:.2f}, Expense: ${expense:.2f}")
+        except ValueError:
+            QMessageBox.warning(None, "Invalid Input", "Please enter valid numbers for credit, cash, and expense amounts.")
+            print("Error: Invalid input values")
+            return
+
+        # Insert the close register record
+        try:
+            query = """
+                INSERT INTO employee_close 
+                (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            data = (first_name, last_name, store_name, credit, cash_in_envelope, expense, comments, self.employee_id)
+            print(f"Inserting close register record. Query: {query}, Data: {data}")
+            success = connect(query, data)
+            print(f"Close register insert result: {success}")
+
+            if success:
+                QMessageBox.information(None, "Success", "Close register submitted successfully.")
+                # Clear input fields
+                self.closeCreditInput.clear()
+                self.closeCashInEnvInput.clear()
+                self.closeExpenseInput.clear()
+                self.CloseCommentsInput.clear()
+                print("Close register submission successful")
+            else:
+                QMessageBox.critical(None, "Error", "Failed to submit close register.")
+                print("Error: Close register insert failed")
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"Failed to submit close register: {e}")
+            print(f"Error during close register submission: {e}")
 
     def create_history_frame(self):
         self.btnHistory = QtWidgets.QWidget()
