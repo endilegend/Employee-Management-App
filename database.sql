@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     expense_type VARCHAR(150),
     expense_date DATE,
     employee_id INT,
-    quantity INT,
+    expense_value,
     FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 );
 CREATE TABLE IF NOT EXISTS merchandise (
