@@ -279,7 +279,7 @@ class Ui_OwnerDialog(object):
         self.page_invoice = self._create_invoice_page()
         self.page_expense = self._create_expense_page()
         self.page_merchandise = self._create_merchandise_page()
-        self.page_emp_hist = self._add_placeholder_page("Employee History")
+        self.page_emp_hist = self._create_employee_history_page()
         self.page_exp_hist = self._add_placeholder_page("Expenses History")
         self.page_merch_hist = self._add_placeholder_page("Merchandise History")
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
@@ -952,6 +952,359 @@ class Ui_OwnerDialog(object):
 
         self.stackedWidget.addWidget(page)
         return page
+
+    def _create_employee_history_page(self):
+        """Create the employee history page with employee selection and history display."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Employee History")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Employee selection
+        self.employee_combo = QtWidgets.QComboBox()
+        self.employee_combo.setFixedWidth(250)
+        self.employee_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        self.populate_employee_combo()
+        controls_layout.addWidget(self.employee_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.prev_week_btn = QtWidgets.QPushButton("←")
+        self.prev_week_btn.setFixedSize(40, 40)
+        self.prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.week_label = QtWidgets.QLabel()
+        self.week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.next_week_btn = QtWidgets.QPushButton("→")
+        self.next_week_btn.setFixedSize(40, 40)
+        self.next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.prev_week_btn)
+        week_nav_layout.addWidget(self.week_label)
+        week_nav_layout.addWidget(self.next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.calendar_btn.setFixedHeight(40)
+        self.calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.calendar_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # History table
+        self.history_table = QtWidgets.QTableWidget()
+        self.history_table.setColumnCount(6)
+        self.history_table.setHorizontalHeaderLabels([
+            "Date", "Clock In", "Clock Out", "Register In", "Register Out", "Duration"
+        ])
+        self.history_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.history_table.setAlternatingRowColors(True)
+        self.history_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.history_table)
+
+        # Initialize current week
+        self.current_week_start = self.get_week_start_date()
+        self.update_week_label()
+        
+        # Connect signals
+        self.employee_combo.currentIndexChanged.connect(self.load_employee_history)
+        self.prev_week_btn.clicked.connect(self.previous_week)
+        self.next_week_btn.clicked.connect(self.next_week)
+        self.calendar_btn.clicked.connect(self.show_calendar)
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_employee_combo(self):
+        """Populate the employee combo box with employee names."""
+        try:
+            query = "SELECT employee_id, firstName, lastName FROM employee WHERE role = 'employee'"
+            results = connect(query, None)
+            
+            if results:
+                self.employee_combo.clear()
+                for employee in results:
+                    self.employee_combo.addItem(
+                        f"{employee[1]} {employee[2]}",
+                        employee[0]  # Store employee_id as userData
+                    )
+        except Exception as e:
+            print(f"Error populating employee combo: {e}")
+
+    def get_week_start_date(self):
+        """Get the start date of the current week (Monday)."""
+        today = QtCore.QDate.currentDate()
+        return today.addDays(-today.dayOfWeek() + 1)  # Adjust to Monday
+
+    def update_week_label(self):
+        """Update the week label with the current week range."""
+        week_end = self.current_week_start.addDays(6)
+        self.week_label.setText(
+            f"{self.current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_employee_history()
+
+    def previous_week(self):
+        """Navigate to the previous week."""
+        self.current_week_start = self.current_week_start.addDays(-7)
+        self.update_week_label()
+
+    def next_week(self):
+        """Navigate to the next week."""
+        self.current_week_start = self.current_week_start.addDays(7)
+        self.update_week_label()
+
+    def show_calendar(self):
+        """Show calendar dialog to select a date."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_week_label()
+
+    def load_employee_history(self):
+        """Load the selected employee's history for the current week."""
+        employee_id = self.employee_combo.currentData()
+        if not employee_id:
+            return
+
+        try:
+            week_end = self.current_week_start.addDays(6)
+            
+            query = """
+                SELECT 
+                    DATE(clock_in) as date,
+                    TIME(clock_in) as clock_in_time,
+                    TIME(clock_out) as clock_out_time,
+                    reg_in,
+                    reg_out
+                FROM clockTable
+                WHERE employee_id = %s 
+                AND DATE(clock_in) BETWEEN %s AND %s
+                ORDER BY clock_in
+            """
+            data = (
+                employee_id,
+                self.current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.history_table.setRowCount(0)
+            
+            if results:
+                for row_data in results:
+                    row = self.history_table.rowCount()
+                    self.history_table.insertRow(row)
+                    
+                    # Format date
+                    date = row_data[0].strftime("%Y-%m-%d")
+                    
+                    # Format times (handle timedelta objects)
+                    def format_timedelta(td):
+                        if td is None:
+                            return "-"
+                        total_seconds = int(td.total_seconds())
+                        hours = total_seconds // 3600
+                        minutes = (total_seconds % 3600) // 60
+                        seconds = total_seconds % 60
+                        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    
+                    clock_in = format_timedelta(row_data[1])
+                    clock_out = format_timedelta(row_data[2])
+                    
+                    # Calculate duration
+                    def calculate_duration(clock_in_td, clock_out_td):
+                        if clock_in_td is None or clock_out_td is None:
+                            return "-"
+                        duration_seconds = int((clock_out_td - clock_in_td).total_seconds())
+                        if duration_seconds < 0:
+                            return "-"
+                        hours = duration_seconds // 3600
+                        minutes = (duration_seconds % 3600) // 60
+                        return f"{hours}h {minutes}m"
+                    
+                    duration = calculate_duration(row_data[1], row_data[2])
+                    
+                    # Format register amounts
+                    reg_in = f"${float(row_data[3]):.2f}" if row_data[3] is not None else "-"
+                    reg_out = f"${float(row_data[4]):.2f}" if row_data[4] is not None else "-"
+                    
+                    # Add items to table
+                    self.history_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
+                    self.history_table.setItem(row, 1, QtWidgets.QTableWidgetItem(clock_in))
+                    self.history_table.setItem(row, 2, QtWidgets.QTableWidgetItem(clock_out))
+                    self.history_table.setItem(row, 3, QtWidgets.QTableWidgetItem(reg_in))
+                    self.history_table.setItem(row, 4, QtWidgets.QTableWidgetItem(reg_out))
+                    self.history_table.setItem(row, 5, QtWidgets.QTableWidgetItem(duration))
+                    
+                    # Center align all items
+                    for col in range(6):
+                        self.history_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
+            
+            # Resize columns to fit content
+            self.history_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading employee history: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employee history: {e}")
 
     def submit_invoice(self):
         """Handle the invoice submission."""
