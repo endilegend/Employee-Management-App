@@ -5,7 +5,7 @@ from PyQt5.QtGui import QPalette, QBrush, QPixmap
 from PyQt5.QtCore import Qt
 from sqlConnector import connect
 from employee import Ui_Dialog as EmployeePage  # Import Employee page
-from owner import Ui_Dialog as OwnerPage        # Import Owner page
+from owner import Ui_OwnerDialog as OwnerPage  # Import Owner page
 from manager import Ui_Dialog as ManagerPage    # Import Manager page
 
 class LoginForm(QWidget):

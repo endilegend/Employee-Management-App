@@ -218,7 +218,7 @@ class Ui_Dialog(object):
         
         # Add content widget to main layout
         self.main_layout.addWidget(self.content_widget)
-        
+
         # Connect buttons to switch frames
         self.clockInViewBtn.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.btnClockIn))
         self.clockOutViewBtn.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.btnClockOut))
@@ -231,10 +231,10 @@ class Ui_Dialog(object):
         # Connect the Clock-In and Clock-Out buttons to their respective methods
         self.clockInBtn.clicked.connect(self.clock_in)
         self.ClockOutBtn.clicked.connect(self.clock_out)
-        
+
         # Set the default frame to the Clock-In frame
         self.stackedWidget.setCurrentWidget(self.btnClockIn)
-        
+
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
