@@ -101,9 +101,10 @@ class LoginForm(QWidget):
 			# Debug: Print the query result to verify its structure
 			print(f"Query Result: {results}")
 
-			# Extract the role from the correct column (assuming 'role' is the 6th column)
-			role = results[0][5]  # Column index for 'role' (0-based index)
-			print(f"Login successful. Role: {role}")  # Debug print
+			# Extract the employee_id and role
+			self.employee_id = results[0][0]  # Assuming employee_id is the first column
+			role = results[0][5]  # Assuming 'role' is the 6th column (0-based index)
+			print(f"Login successful. Employee ID: {self.employee_id}, Role: {role}")  # Debug print
 			msg.setText('Login Successful')
 			msg.exec_()
 
@@ -113,17 +114,17 @@ class LoginForm(QWidget):
 			elif role == 'manager':
 				self.redirect_to_manager()
 			elif role == 'employee':
-				self.redirect_to_employee()
+				self.redirect_to_employee(self.employee_id)
 		else:
 			print("Invalid username or password.")  # Debug print
 			msg.setText('Invalid Username or Password')
 			msg.exec_()
 
-	def redirect_to_employee(self):
+	def redirect_to_employee(self, employee_id):
 		print("Redirecting to Employee Page...")  # Debug print
 		employee_page = QWidget()
 		employee_ui = EmployeePage()
-		employee_ui.setupUi(employee_page, self.stacked_widget)  # Pass QStackedWidget
+		employee_ui.setupUi(employee_page, self.stacked_widget, employee_id)  # Pass employee_id
 		self.stacked_widget.addWidget(employee_page)
 		self.stacked_widget.setCurrentWidget(employee_page)
 
