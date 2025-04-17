@@ -277,7 +277,7 @@ class Ui_OwnerDialog(object):
         self.page_clock_in = self._create_clock_in_page()
         self.page_clock_out = self._create_clock_out_page()
         self.page_invoice = self._create_invoice_page()
-        self.page_expense = self._add_placeholder_page("Enter Expense")
+        self.page_expense = self._create_expense_page()
         self.page_merchandise = self._add_placeholder_page("Enter Merchandise")
         self.page_emp_hist = self._add_placeholder_page("Employee History")
         self.page_exp_hist = self._add_placeholder_page("Expenses History")
@@ -617,6 +617,170 @@ class Ui_OwnerDialog(object):
         self.stackedWidget.addWidget(page)
         return page
 
+    def _create_expense_page(self):
+        """Create the expense page with input fields and submit functionality."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Enter Expense")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Form container with shadow
+        form_container = QtWidgets.QWidget()
+        form_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(30, 30, 30, 30)
+
+        # Input field styling
+        input_style = """
+            QLineEdit, QDateEdit, QComboBox {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+                min-height: 20px;
+            }
+            QLineEdit:focus, QDateEdit:focus, QComboBox:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+            QComboBox::down-arrow {
+                image: url(down_arrow.png);
+                width: 12px;
+                height: 12px;
+            }
+            QDateEdit::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 5px 0;
+            }
+        """
+
+        # Expense type input
+        self.expense_type_input = QtWidgets.QLineEdit()
+        self.expense_type_input.setPlaceholderText("Enter Expense Type")
+        self.expense_type_input.setStyleSheet(input_style)
+        type_label = QtWidgets.QLabel("Expense Type")
+        type_label.setStyleSheet(label_style)
+        form_layout.addRow(type_label, self.expense_type_input)
+
+        # Expense value input
+        self.expense_value_input = QtWidgets.QLineEdit()
+        self.expense_value_input.setPlaceholderText("Enter Expense Value")
+        self.expense_value_input.setStyleSheet(input_style)
+        value_label = QtWidgets.QLabel("Expense Value")
+        value_label.setStyleSheet(label_style)
+        form_layout.addRow(value_label, self.expense_value_input)
+
+        # Expense date input
+        self.expense_date_input = QtWidgets.QDateEdit()
+        self.expense_date_input.setCalendarPopup(True)
+        self.expense_date_input.setDate(QtCore.QDate.currentDate())
+        self.expense_date_input.setStyleSheet(input_style)
+        date_label = QtWidgets.QLabel("Expense Date")
+        date_label.setStyleSheet(label_style)
+        form_layout.addRow(date_label, self.expense_date_input)
+
+        # Add form container to main layout
+        main_layout.addWidget(form_container)
+
+        # Submit button container
+        button_container = QtWidgets.QWidget()
+        button_layout = QtWidgets.QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Submit button with modern style
+        self.submit_expense_btn = QtWidgets.QPushButton("Submit Expense")
+        self.submit_expense_btn.setFixedHeight(50)
+        self.submit_expense_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #c0392b;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #a93226;
+            }
+            QPushButton:pressed {
+                background-color: #922b21;
+            }
+        """)
+        self.submit_expense_btn.clicked.connect(self.submit_expense)
+        button_layout.addStretch()
+        button_layout.addWidget(self.submit_expense_btn)
+        button_layout.addStretch()
+
+        main_layout.addWidget(button_container)
+        main_layout.addStretch()
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        self.stackedWidget.addWidget(page)
+        return page
+
     def submit_invoice(self):
         """Handle the invoice submission."""
         print("Attempting to submit invoice...")
@@ -679,6 +843,56 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit invoice: {e}")
             print(f"Error during invoice submission: {e}")
+
+    def submit_expense(self):
+        """Handle the expense submission."""
+        print("Attempting to submit expense...")
+        
+        # Validate inputs
+        try:
+            expense_type = self.expense_type_input.text().strip()
+            expense_value = float(self.expense_value_input.text())
+            expense_date = self.expense_date_input.date().toPyDate()
+
+            if not expense_type:
+                raise ValueError("Expense type cannot be empty")
+            if expense_value <= 0:
+                raise ValueError("Expense value must be greater than 0")
+
+        except ValueError as e:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", str(e))
+            print(f"Input validation error: {e}")
+            return
+
+        # Insert into database
+        try:
+            query = """
+                INSERT INTO expenses 
+                (expense_type, expense_date, employee_id)
+                VALUES (%s, %s, %s)
+            """
+            data = (
+                expense_type,
+                expense_date,
+                self.employee_id
+            )
+            print(f"Inserting expense record. Query: {query}, Data: {data}")
+            success = connect(query, data)
+            print(f"Expense insert result: {success}")
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Expense submitted successfully.")
+                # Clear input fields
+                self.expense_type_input.clear()
+                self.expense_value_input.clear()
+                self.expense_date_input.setDate(QtCore.QDate.currentDate())
+                print("Expense submission successful")
+            else:
+                QtWidgets.QMessageBox.critical(None, "Error", "Failed to submit expense.")
+                print("Error: Expense insert failed")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit expense: {e}")
+            print(f"Error during expense submission: {e}")
 
     def clock_in(self):
         """Handle the clock-in operation."""
