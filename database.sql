@@ -2,6 +2,15 @@ CREATE DATABASE IF NOT EXISTS employee_db;
 
 USE employee_db;
 
+CREATE TABLE IF NOT EXISTS expenses (
+    expense_id INT PRIMARY KEY AUTO_INCREMENT,
+    expense_type VARCHAR(150),
+    expense_date DATE,
+    employee_id INT,
+    FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
+);
+
+
 # user information
 CREATE TABLE IF NOT EXISTS employee(
     employee_id INT AUTO_INCREMENT PRIMARY KEY,

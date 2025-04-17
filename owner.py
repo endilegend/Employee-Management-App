@@ -432,158 +432,165 @@ class Ui_OwnerDialog(object):
     def _create_invoice_page(self):
         """Create the invoice page with input fields and submit functionality."""
         page = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
 
-        # Title
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
         title = QtWidgets.QLabel("Enter Invoice")
         title.setStyleSheet("""
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 20px;
-        """)
-        layout.addWidget(title)
-
-        # Create form layout
-        form_layout = QtWidgets.QFormLayout()
-        form_layout.setSpacing(15)
-        form_layout.setContentsMargins(20, 20, 20, 20)
-
-        # Invoice ID input
-        self.invoice_id_input = QtWidgets.QLineEdit()
-        self.invoice_id_input.setPlaceholderText("Enter Invoice ID")
-        self.invoice_id_input.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                background-color: #f8f9fa;
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
             }
-            QLineEdit:focus {
-                border-color: #3498db;
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Form container with shadow
+        form_container = QtWidgets.QWidget()
+        form_container.setStyleSheet("""
+            QWidget {
                 background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
             }
         """)
-        form_layout.addRow("Invoice ID:", self.invoice_id_input)
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(30, 30, 30, 30)
 
-        # Date input
-        self.date_input = QtWidgets.QDateEdit()
-        self.date_input.setCalendarPopup(True)
-        self.date_input.setDate(QtCore.QDate.currentDate())
-        self.date_input.setStyleSheet("""
-            QDateEdit {
+        # Input field styling
+        input_style = """
+            QLineEdit, QDateEdit, QComboBox {
                 padding: 12px;
                 border: 2px solid #e0e0e0;
                 border-radius: 6px;
                 font-size: 14px;
                 background-color: #f8f9fa;
+                min-height: 20px;
             }
-            QDateEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        form_layout.addRow("Date:", self.date_input)
-
-        # Company input
-        self.company_input = QtWidgets.QLineEdit()
-        self.company_input.setPlaceholderText("Enter Company Name")
-        self.company_input.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                background-color: #f8f9fa;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        form_layout.addRow("Company:", self.company_input)
-
-        # Paid status combo box
-        self.paid_status_combo = QtWidgets.QComboBox()
-        self.paid_status_combo.addItems(["Yes", "No"])
-        self.paid_status_combo.setStyleSheet("""
-            QComboBox {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                background-color: #f8f9fa;
-            }
-            QComboBox:focus {
+            QLineEdit:focus, QDateEdit:focus, QComboBox:focus {
                 border-color: #3498db;
                 background-color: white;
             }
             QComboBox::drop-down {
                 border: none;
-                width: 20px;
+                width: 30px;
             }
             QComboBox::down-arrow {
                 image: url(down_arrow.png);
                 width: 12px;
                 height: 12px;
             }
-        """)
-        form_layout.addRow("Paid Status:", self.paid_status_combo)
+            QDateEdit::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 5px 0;
+            }
+        """
+
+        # Invoice ID input
+        self.invoice_id_input = QtWidgets.QLineEdit()
+        self.invoice_id_input.setPlaceholderText("Enter Invoice ID")
+        self.invoice_id_input.setStyleSheet(input_style)
+        id_label = QtWidgets.QLabel("Invoice ID")
+        id_label.setStyleSheet(label_style)
+        form_layout.addRow(id_label, self.invoice_id_input)
+
+        # Date input
+        self.date_input = QtWidgets.QDateEdit()
+        self.date_input.setCalendarPopup(True)
+        self.date_input.setDate(QtCore.QDate.currentDate())
+        self.date_input.setStyleSheet(input_style)
+        date_label = QtWidgets.QLabel("Date")
+        date_label.setStyleSheet(label_style)
+        form_layout.addRow(date_label, self.date_input)
+
+        # Company input
+        self.company_input = QtWidgets.QLineEdit()
+        self.company_input.setPlaceholderText("Enter Company Name")
+        self.company_input.setStyleSheet(input_style)
+        company_label = QtWidgets.QLabel("Company")
+        company_label.setStyleSheet(label_style)
+        form_layout.addRow(company_label, self.company_input)
+
+        # Paid status combo box
+        self.paid_status_combo = QtWidgets.QComboBox()
+        self.paid_status_combo.addItems(["Yes", "No"])
+        self.paid_status_combo.setStyleSheet(input_style)
+        status_label = QtWidgets.QLabel("Paid Status")
+        status_label.setStyleSheet(label_style)
+        form_layout.addRow(status_label, self.paid_status_combo)
 
         # Amount input
         self.amount_input = QtWidgets.QLineEdit()
         self.amount_input.setPlaceholderText("Enter Amount")
-        self.amount_input.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                background-color: #f8f9fa;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        form_layout.addRow("Amount:", self.amount_input)
+        self.amount_input.setStyleSheet(input_style)
+        amount_label = QtWidgets.QLabel("Amount")
+        amount_label.setStyleSheet(label_style)
+        form_layout.addRow(amount_label, self.amount_input)
 
         # Amount paid input
         self.amount_paid_input = QtWidgets.QLineEdit()
         self.amount_paid_input.setPlaceholderText("Enter Amount Paid")
-        self.amount_paid_input.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                background-color: #f8f9fa;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        form_layout.addRow("Amount Paid:", self.amount_paid_input)
+        self.amount_paid_input.setStyleSheet(input_style)
+        paid_label = QtWidgets.QLabel("Amount Paid")
+        paid_label.setStyleSheet(label_style)
+        form_layout.addRow(paid_label, self.amount_paid_input)
 
-        # Add form layout to main layout
-        layout.addLayout(form_layout)
+        # Add form container to main layout
+        main_layout.addWidget(form_container)
 
-        # Submit button
+        # Submit button container
+        button_container = QtWidgets.QWidget()
+        button_layout = QtWidgets.QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Submit button with modern style
         self.submit_btn = QtWidgets.QPushButton("Submit Invoice")
+        self.submit_btn.setFixedHeight(50)
         self.submit_btn.setStyleSheet("""
             QPushButton {
                 background-color: #16a085;
                 color: white;
                 border: none;
-                border-radius: 6px;
-                padding: 12px;
+                border-radius: 8px;
                 font-size: 16px;
                 font-weight: bold;
-                margin-top: 20px;
+                padding: 0 20px;
             }
             QPushButton:hover {
                 background-color: #149174;
@@ -593,9 +600,20 @@ class Ui_OwnerDialog(object):
             }
         """)
         self.submit_btn.clicked.connect(self.submit_invoice)
-        layout.addWidget(self.submit_btn)
+        button_layout.addStretch()
+        button_layout.addWidget(self.submit_btn)
+        button_layout.addStretch()
 
-        layout.addStretch()
+        main_layout.addWidget(button_container)
+        main_layout.addStretch()
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
         self.stackedWidget.addWidget(page)
         return page
 
