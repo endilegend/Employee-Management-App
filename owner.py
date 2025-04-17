@@ -1132,7 +1132,39 @@ class Ui_OwnerDialog(object):
         """)
         self.history_table.setAlternatingRowColors(True)
         self.history_table.horizontalHeader().setStretchLastSection(True)
+        
+        # Enable editing for all columns except duration
+        self.history_table.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked | 
+                                         QtWidgets.QAbstractItemView.EditKeyPressed)
+        
+        # Connect cell changed signal
+        self.history_table.cellChanged.connect(self.on_cell_changed)
+        
         main_layout.addWidget(self.history_table)
+        
+        # Submit changes button (initially hidden)
+        self.submit_changes_btn = QtWidgets.QPushButton("Submit Changes")
+        self.submit_changes_btn.setFixedHeight(50)
+        self.submit_changes_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+            QPushButton:pressed {
+                background-color: #219653;
+            }
+        """)
+        self.submit_changes_btn.clicked.connect(self.submit_changes)
+        self.submit_changes_btn.hide()
+        main_layout.addWidget(self.submit_changes_btn, alignment=QtCore.Qt.AlignRight)
 
         # Initialize current week
         self.current_week_start = self.get_week_start_date()
@@ -1305,6 +1337,138 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error loading employee history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employee history: {e}")
+
+    def on_cell_changed(self, row, column):
+        """Handle cell changes in the history table."""
+        # Don't show submit button if duration column was changed
+        if column == 5:  # Duration column
+            return
+            
+        # Show the submit button
+        self.submit_changes_btn.show()
+        
+        # Store the changed data
+        if not hasattr(self, 'changed_cells'):
+            self.changed_cells = []
+            
+        # Check if this cell is already in the list
+        for cell in self.changed_cells:
+            if cell['row'] == row and cell['column'] == column:
+                # Update the value
+                cell['new_value'] = self.history_table.item(row, column).text()
+                return
+                
+        # Add new changed cell
+        self.changed_cells.append({
+            'row': row,
+            'column': column,
+            'old_value': self.history_table.item(row, column).text(),
+            'new_value': self.history_table.item(row, column).text()
+        })
+
+    def submit_changes(self):
+        """Submit all changes to the database."""
+        if not hasattr(self, 'changed_cells') or not self.changed_cells:
+            return
+            
+        employee_id = self.employee_combo.currentData()
+        if not employee_id:
+            return
+            
+        try:
+            # Get unique dates and times from changed cells
+            changed_records = {}
+            for cell in self.changed_cells:
+                date = self.history_table.item(cell['row'], 0).text()
+                clock_in = self.history_table.item(cell['row'], 1).text()
+                if date not in changed_records:
+                    changed_records[date] = {}
+                if clock_in not in changed_records[date]:
+                    changed_records[date][clock_in] = {}
+                changed_records[date][clock_in][cell['column']] = cell['new_value']
+            
+            # For each changed record, get the complete record
+            for date, times in changed_records.items():
+                for clock_in_time, changes in times.items():
+                    # Get the original record
+                    query = """
+                        SELECT * FROM clockTable 
+                        WHERE employee_id = %s 
+                        AND DATE(clock_in) = %s 
+                        AND TIME(clock_in) = %s
+                    """
+                    data = (employee_id, date, clock_in_time)
+                    results = connect(query, data)
+                    
+                    if not results:
+                        raise Exception(f"No record found for date {date} and time {clock_in_time}")
+                    
+                    # Get the original record
+                    original_record = results[0]
+                    
+                    # Create a new record with updated values
+                    new_record = list(original_record)
+                    
+                    # Update values from the table
+                    for column, new_value in changes.items():
+                        if column == 1:  # Clock In
+                            new_record[3] = f"{date} {new_value}"  # Combine date and time
+                        elif column == 2:  # Clock Out
+                            new_record[4] = f"{date} {new_value}"  # Combine date and time
+                        elif column == 3:  # Register In
+                            new_record[5] = float(new_value.replace('$', ''))
+                        elif column == 4:  # Register Out
+                            new_record[6] = float(new_value.replace('$', ''))
+                    
+                    # Delete the old record
+                    delete_query = """
+                        DELETE FROM clockTable 
+                        WHERE employee_id = %s 
+                        AND DATE(clock_in) = %s 
+                        AND TIME(clock_in) = %s
+                    """
+                    delete_data = (employee_id, date, clock_in_time)
+                    delete_success = connect(delete_query, delete_data)
+                    
+                    if not delete_success:
+                        raise Exception(f"Failed to delete record for date {date} and time {clock_in_time}")
+                    
+                    # Insert the new record
+                    insert_query = """
+                        INSERT INTO clockTable 
+                        (employee_id, store_id, clock_in, clock_out, reg_in, reg_out)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    insert_data = (
+                        new_record[1],  # employee_id
+                        new_record[2],  # store_id
+                        new_record[3],  # clock_in (now with full datetime)
+                        new_record[4],  # clock_out (now with full datetime)
+                        new_record[5],  # reg_in
+                        new_record[6]   # reg_out
+                    )
+                    insert_success = connect(insert_query, insert_data)
+                    
+                    if not insert_success:
+                        raise Exception(f"Failed to insert new record for date {date} and time {clock_in_time}")
+            
+            # Show success message
+            QtWidgets.QMessageBox.information(None, "Success", "Changes submitted successfully.")
+            
+            # Clear changed cells and hide submit button
+            self.changed_cells = []
+            self.submit_changes_btn.hide()
+            
+            # Reload the history to show updated values
+            self.load_employee_history()
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit changes: {e}")
+            # Revert changes in the table
+            for cell in self.changed_cells:
+                self.history_table.item(cell['row'], cell['column']).setText(cell['old_value'])
+            self.changed_cells = []
+            self.submit_changes_btn.hide()
 
     def submit_invoice(self):
         """Handle the invoice submission."""
