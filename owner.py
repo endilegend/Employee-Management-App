@@ -280,7 +280,7 @@ class Ui_OwnerDialog(object):
         self.page_expense = self._create_expense_page()
         self.page_merchandise = self._create_merchandise_page()
         self.page_emp_hist = self._create_employee_history_page()
-        self.page_exp_hist = self._add_placeholder_page("Expenses History")
+        self.page_exp_hist = self._create_expenses_history_page()
         self.page_merch_hist = self._add_placeholder_page("Merchandise History")
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
         self.page_payroll = self._add_placeholder_page("Payroll")
@@ -1861,6 +1861,367 @@ class Ui_OwnerDialog(object):
 
         self.stackedWidget.addWidget(page)
         return page
+
+    def _create_expenses_history_page(self):
+        """Create the expenses history page with comprehensive view."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Expenses History")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Store selector
+        self.expenses_store_combo = QtWidgets.QComboBox()
+        self.expenses_store_combo.setFixedWidth(250)
+        self.expenses_store_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        self.populate_expenses_stores()  # Use a separate method for expenses stores
+        controls_layout.addWidget(self.expenses_store_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.expenses_prev_week_btn = QtWidgets.QPushButton("←")
+        self.expenses_prev_week_btn.setFixedSize(40, 40)
+        self.expenses_prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.expenses_week_label = QtWidgets.QLabel()
+        self.expenses_week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.expenses_week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.expenses_next_week_btn = QtWidgets.QPushButton("→")
+        self.expenses_next_week_btn.setFixedSize(40, 40)
+        self.expenses_next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.expenses_prev_week_btn)
+        week_nav_layout.addWidget(self.expenses_week_label)
+        week_nav_layout.addWidget(self.expenses_next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.expenses_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.expenses_calendar_btn.setFixedHeight(40)
+        self.expenses_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.expenses_calendar_btn)
+
+        # Refresh button
+        self.expenses_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.expenses_refresh_btn.setFixedHeight(40)
+        self.expenses_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.expenses_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Expenses table
+        self.expenses_table = QtWidgets.QTableWidget()
+        self.expenses_table.setColumnCount(5)
+        self.expenses_table.setHorizontalHeaderLabels([
+            "Date", "Type", "Amount", "Employee", "Store"
+        ])
+        self.expenses_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.expenses_table.setAlternatingRowColors(True)
+        self.expenses_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.expenses_table)
+
+        # Total expenses label
+        self.expenses_total_label = QtWidgets.QLabel()
+        self.expenses_total_label.setStyleSheet("""
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            padding: 10px;
+        """)
+        self.expenses_total_label.setAlignment(QtCore.Qt.AlignRight)
+        main_layout.addWidget(self.expenses_total_label)
+
+        # Initialize current week
+        self.expenses_current_week_start = self.get_week_start_date()
+        self.update_expenses_week_label()
+        
+        # Connect signals
+        self.expenses_store_combo.currentIndexChanged.connect(self.load_expenses_history)
+        self.expenses_prev_week_btn.clicked.connect(self.expenses_previous_week)
+        self.expenses_next_week_btn.clicked.connect(self.expenses_next_week)
+        self.expenses_calendar_btn.clicked.connect(self.expenses_show_calendar)
+        self.expenses_refresh_btn.clicked.connect(self.load_expenses_history)
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_expenses_stores(self):
+        """Populate the expenses store combo box with store names and IDs."""
+        try:
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                self.expenses_store_combo.clear()
+                for store in results:
+                    self.expenses_store_combo.addItem(store[1], store[0])  # Store name and ID
+        except Exception as e:
+            print(f"Error populating expenses stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def update_expenses_week_label(self):
+        """Update the expenses week label with the current week range."""
+        week_end = self.expenses_current_week_start.addDays(6)
+        self.expenses_week_label.setText(
+            f"{self.expenses_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_expenses_history()
+
+    def expenses_previous_week(self):
+        """Navigate to the previous week in expenses history."""
+        self.expenses_current_week_start = self.expenses_current_week_start.addDays(-7)
+        self.update_expenses_week_label()
+
+    def expenses_next_week(self):
+        """Navigate to the next week in expenses history."""
+        self.expenses_current_week_start = self.expenses_current_week_start.addDays(7)
+        self.update_expenses_week_label()
+
+    def expenses_show_calendar(self):
+        """Show calendar dialog to select a date for expenses history."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.expenses_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.expenses_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_expenses_week_label()
+
+    def load_expenses_history(self):
+        """Load the expenses history for the selected store and week."""
+        store_id = self.expenses_store_combo.currentData()
+        if not store_id:
+            return
+
+        try:
+            week_end = self.expenses_current_week_start.addDays(6)
+            
+            query = """
+                SELECT 
+                    e.expense_date,
+                    e.expense_type,
+                    e.expense_value,
+                    emp.firstName,
+                    emp.lastName,
+                    s.store_name
+                FROM expenses e
+                JOIN employee emp ON e.employee_id = emp.employee_id
+                JOIN Store s ON e.store_id = s.store_id
+                WHERE e.store_id = %s 
+                AND e.expense_date BETWEEN %s AND %s
+                ORDER BY e.expense_date DESC
+            """
+            data = (
+                store_id,
+                self.expenses_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.expenses_table.setRowCount(0)
+            
+            total_expenses = 0.0
+            
+            if results:
+                for row_data in results:
+                    row = self.expenses_table.rowCount()
+                    self.expenses_table.insertRow(row)
+                    
+                    # Format date
+                    date = row_data[0].strftime("%Y-%m-%d")
+                    
+                    # Format amount
+                    amount = f"${float(row_data[2]):.2f}"
+                    total_expenses += float(row_data[2])
+                    
+                    # Format employee name
+                    employee_name = f"{row_data[3]} {row_data[4]}"
+                    
+                    # Add items to table
+                    self.expenses_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
+                    self.expenses_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
+                    self.expenses_table.setItem(row, 2, QtWidgets.QTableWidgetItem(amount))
+                    self.expenses_table.setItem(row, 3, QtWidgets.QTableWidgetItem(employee_name))
+                    self.expenses_table.setItem(row, 4, QtWidgets.QTableWidgetItem(row_data[5]))
+                    
+                    # Center align all items
+                    for col in range(5):
+                        self.expenses_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
+            
+            # Update total label
+            self.expenses_total_label.setText(f"Total Expenses: ${total_expenses:.2f}")
+            
+            # Resize columns to fit content
+            self.expenses_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading expenses history: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load expenses history: {e}")
 
     def _retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
