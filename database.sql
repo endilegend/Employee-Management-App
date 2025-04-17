@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS employee (
                                         userName VARCHAR(15),
                                         password VARCHAR(25) NULL,
                                         role ENUM('employee', 'manager', 'owner'),
+                                        bonus_percentage DECIMAL
 );
 
 CREATE TABLE IF NOT EXISTS expenses (

@@ -128,7 +128,6 @@ class Ui_OwnerDialog(object):
                 color: #2c3e50;
             }
             QComboBox::drop-down { border: none; width: 20px; }
-            QComboBox::down-arrow { image: url(down_arrow.png); width: 12px; height: 12px; }
             QComboBox:hover { background-color: #f5f5f5; }
             """
         )
@@ -208,10 +207,10 @@ class Ui_OwnerDialog(object):
             ("Employee History", "#2980b9"),
             ("Expenses History", "#d35400"),
             ("Merchandise History", "#2ecc71"),
-            ("Close History", "#3498db"),  # Added Close History button
+            ("Close History", "#3498db"),
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
-            ("Manage Employees", "#95a5a6"),
+            ("Manage Users", "#95a5a6"),  # Changed from "Manage Employees" to "Manage Users"
         ]
 
         self.sidebar_buttons = {}
@@ -287,6 +286,7 @@ class Ui_OwnerDialog(object):
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
         self.page_payroll = self._add_placeholder_page("Payroll")
         self.page_manage_emp = self._add_placeholder_page("Manage Employees")
+        self.page_manage_users = self._create_manage_users_page()  # Replace placeholder with actual page
 
         mc_layout.addWidget(self.stackedWidget)
         content_layout.addWidget(self.main_content)
@@ -306,6 +306,7 @@ class Ui_OwnerDialog(object):
             "Gross Profit": self.page_gross_profit,
             "Payroll": self.page_payroll,
             "Manage Employees": self.page_manage_emp,
+            "Manage Users": self.page_manage_users,
         }
         for text, btn in self.sidebar_buttons.items():
             btn.clicked.connect(lambda checked, w=mapping[text]: self.stackedWidget.setCurrentWidget(w))
@@ -2952,6 +2953,609 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error loading close history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load close history: {e}")
+
+    def _create_manage_users_page(self):
+        """Create the user management page with three tabs."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Manage Users")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Tab widget for the three sections
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                background-color: white;
+            }
+            QTabBar::tab {
+                background-color: #f8f9fa;
+                border: 1px solid #e0e0e0;
+                padding: 10px 20px;
+                margin-right: 5px;
+                border-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QTabBar::tab:hover {
+                background-color: #e0e0e0;
+            }
+        """)
+
+        # Create the three tabs
+        self._create_add_user_tab()
+        self._create_edit_user_tab()
+        self._create_delete_user_tab()
+
+        main_layout.addWidget(self.tab_widget)
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        # Populate user combos
+        self._populate_user_combos()
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def _create_add_user_tab(self):
+        """Create the Add User tab with input fields."""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        # Form container
+        form_container = QtWidgets.QWidget()
+        form_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(30, 30, 30, 30)
+
+        # Input field styling
+        input_style = """
+            QLineEdit, QComboBox {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+                min-height: 20px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 5px 0;
+            }
+        """
+
+        # Role selection
+        self.role_combo = QtWidgets.QComboBox()
+        self.role_combo.addItems(["employee", "manager", "owner"])
+        self.role_combo.setStyleSheet(input_style)
+        self.role_combo.currentTextChanged.connect(self._update_bonus_field)
+        role_label = QtWidgets.QLabel("Role")
+        role_label.setStyleSheet(label_style)
+        form_layout.addRow(role_label, self.role_combo)
+
+        # First Name
+        self.first_name_input = QtWidgets.QLineEdit()
+        self.first_name_input.setStyleSheet(input_style)
+        first_name_label = QtWidgets.QLabel("First Name")
+        first_name_label.setStyleSheet(label_style)
+        form_layout.addRow(first_name_label, self.first_name_input)
+
+        # Last Name
+        self.last_name_input = QtWidgets.QLineEdit()
+        self.last_name_input.setStyleSheet(input_style)
+        last_name_label = QtWidgets.QLabel("Last Name")
+        last_name_label.setStyleSheet(label_style)
+        form_layout.addRow(last_name_label, self.last_name_input)
+
+        # Username
+        self.username_input = QtWidgets.QLineEdit()
+        self.username_input.setStyleSheet(input_style)
+        username_label = QtWidgets.QLabel("Username")
+        username_label.setStyleSheet(label_style)
+        form_layout.addRow(username_label, self.username_input)
+
+        # Password
+        self.password_input = QtWidgets.QLineEdit()
+        self.password_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.password_input.setStyleSheet(input_style)
+        password_label = QtWidgets.QLabel("Password")
+        password_label.setStyleSheet(label_style)
+        form_layout.addRow(password_label, self.password_input)
+
+        # Bonus Percentage (only for employees)
+        self.bonus_input = QtWidgets.QLineEdit()
+        self.bonus_input.setStyleSheet(input_style)
+        self.bonus_input.setPlaceholderText("Enter percentage (e.g., 3.5)")
+        bonus_label = QtWidgets.QLabel("Bonus Percentage")
+        bonus_label.setStyleSheet(label_style)
+        form_layout.addRow(bonus_label, self.bonus_input)
+
+        layout.addWidget(form_container)
+
+        # Submit button
+        self.add_user_btn = QtWidgets.QPushButton("Add User")
+        self.add_user_btn.setFixedHeight(50)
+        self.add_user_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+            QPushButton:pressed {
+                background-color: #219653;
+            }
+        """)
+        self.add_user_btn.clicked.connect(self.add_user)
+        layout.addWidget(self.add_user_btn, alignment=QtCore.Qt.AlignRight)
+
+        self.tab_widget.addTab(tab, "Add User")
+
+    def _create_edit_user_tab(self):
+        """Create the Edit User tab with user selection and edit fields."""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        # Form container
+        form_container = QtWidgets.QWidget()
+        form_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(30, 30, 30, 30)
+
+        # Input field styling
+        input_style = """
+            QLineEdit, QComboBox {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+                min-height: 20px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 5px 0;
+            }
+        """
+
+        # User selection
+        self.edit_user_combo = QtWidgets.QComboBox()
+        self.edit_user_combo.setStyleSheet(input_style)
+        self.edit_user_combo.currentIndexChanged.connect(self._load_user_data)
+        user_label = QtWidgets.QLabel("Select User")
+        user_label.setStyleSheet(label_style)
+        form_layout.addRow(user_label, self.edit_user_combo)
+
+        # Password
+        self.edit_password_input = QtWidgets.QLineEdit()
+        self.edit_password_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.edit_password_input.setStyleSheet(input_style)
+        password_label = QtWidgets.QLabel("New Password")
+        password_label.setStyleSheet(label_style)
+        form_layout.addRow(password_label, self.edit_password_input)
+
+        # Bonus Percentage (only for employees)
+        self.edit_bonus_input = QtWidgets.QLineEdit()
+        self.edit_bonus_input.setStyleSheet(input_style)
+        self.edit_bonus_input.setPlaceholderText("Enter percentage (e.g., 3.5)")
+        bonus_label = QtWidgets.QLabel("Bonus Percentage")
+        bonus_label.setStyleSheet(label_style)
+        form_layout.addRow(bonus_label, self.edit_bonus_input)
+
+        layout.addWidget(form_container)
+
+        # Submit button
+        self.edit_user_btn = QtWidgets.QPushButton("Update User")
+        self.edit_user_btn.setFixedHeight(50)
+        self.edit_user_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #2472a4;
+            }
+        """)
+        self.edit_user_btn.clicked.connect(self.update_user)
+        layout.addWidget(self.edit_user_btn, alignment=QtCore.Qt.AlignRight)
+
+        self.tab_widget.addTab(tab, "Edit User")
+
+    def _create_delete_user_tab(self):
+        """Create the Delete User tab with user selection."""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        # Form container
+        form_container = QtWidgets.QWidget()
+        form_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(30, 30, 30, 30)
+
+        # Input field styling
+        input_style = """
+            QComboBox {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+                min-height: 20px;
+            }
+            QComboBox:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 5px 0;
+            }
+        """
+
+        # User selection
+        self.delete_user_combo = QtWidgets.QComboBox()
+        self.delete_user_combo.setStyleSheet(input_style)
+        user_label = QtWidgets.QLabel("Select User to Delete")
+        user_label.setStyleSheet(label_style)
+        form_layout.addRow(user_label, self.delete_user_combo)
+
+        layout.addWidget(form_container)
+
+        # Delete button
+        self.delete_user_btn = QtWidgets.QPushButton("Delete User")
+        self.delete_user_btn.setFixedHeight(50)
+        self.delete_user_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+            QPushButton:pressed {
+                background-color: #a93226;
+            }
+        """)
+        self.delete_user_btn.clicked.connect(self.delete_user)
+        layout.addWidget(self.delete_user_btn, alignment=QtCore.Qt.AlignRight)
+
+        self.tab_widget.addTab(tab, "Delete User")
+
+    def _update_bonus_field(self, role):
+        """Update the bonus input field based on the selected role."""
+        if role in ["manager", "owner"]:
+            self.bonus_input.setText("1.0")
+            self.bonus_input.setEnabled(False)
+        else:
+            self.bonus_input.clear()
+            self.bonus_input.setEnabled(True)
+
+    def _load_user_data(self, index):
+        """Load user data when a user is selected in the edit tab."""
+        if index < 0:
+            return
+
+        user_id = self.edit_user_combo.currentData()
+        if not user_id:
+            return
+
+        try:
+            query = """
+                SELECT role, bonus_percentage 
+                FROM employee 
+                WHERE employee_id = %s
+            """
+            data = (user_id,)
+            results = connect(query, data)
+
+            if results:
+                role, bonus = results[0]
+                if role in ["manager", "owner"]:
+                    self.edit_bonus_input.setText("1.0")
+                    self.edit_bonus_input.setEnabled(False)
+                else:
+                    self.edit_bonus_input.setText(str(float(bonus) * 100))
+                    self.edit_bonus_input.setEnabled(True)
+        except Exception as e:
+            print(f"Error loading user data: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load user data: {e}")
+
+    def add_user(self):
+        """Handle adding a new user."""
+        try:
+            # Get input values
+            role = self.role_combo.currentText()
+            first_name = self.first_name_input.text().strip()
+            last_name = self.last_name_input.text().strip()
+            username = self.username_input.text().strip()
+            password = self.password_input.text().strip()
+            bonus = self.bonus_input.text().strip()
+
+            # Validate inputs
+            if not all([first_name, last_name, username, password]):
+                raise ValueError("All fields are required")
+
+            if role == "employee":
+                try:
+                    # Convert percentage to multiplier (e.g., 3.5% becomes 1.035)
+                    bonus_value = 1 + (float(bonus) / 100)
+                except ValueError:
+                    raise ValueError("Bonus percentage must be a number")
+            else:
+                bonus_value = 1.0  # Managers and owners always have 1.0
+
+            # Insert into database
+            query = """
+                INSERT INTO employee 
+                (firstName, lastName, userName, password, role, bonus_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            data = (first_name, last_name, username, password, role, bonus_value)
+            success = connect(query, data)
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "User added successfully")
+                # Clear input fields
+                self.first_name_input.clear()
+                self.last_name_input.clear()
+                self.username_input.clear()
+                self.password_input.clear()
+                self.bonus_input.clear()
+                # Refresh user lists
+                self._populate_user_combos()
+            else:
+                raise Exception("Failed to add user")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def update_user(self):
+        """Handle updating an existing user."""
+        try:
+            user_id = self.edit_user_combo.currentData()
+            if not user_id:
+                raise ValueError("Please select a user")
+
+            # Get input values
+            password = self.edit_password_input.text().strip()
+            bonus = self.edit_bonus_input.text().strip()
+
+            # Validate inputs
+            if not password:
+                raise ValueError("Password is required")
+
+            # Get user role
+            query = "SELECT role FROM employee WHERE employee_id = %s"
+            data = (user_id,)
+            results = connect(query, data)
+            if not results:
+                raise Exception("User not found")
+
+            role = results[0][0]
+            if role == "employee":
+                try:
+                    bonus_value = float(bonus) / 100
+                except ValueError:
+                    raise ValueError("Bonus percentage must be a number")
+            else:
+                bonus_value = 1.0
+
+            # Update database
+            query = """
+                UPDATE employee 
+                SET password = %s, bonus_percentage = %s
+                WHERE employee_id = %s
+            """
+            data = (password, bonus_value, user_id)
+            success = connect(query, data)
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "User updated successfully")
+                # Clear input fields
+                self.edit_password_input.clear()
+                self.edit_bonus_input.clear()
+            else:
+                raise Exception("Failed to update user")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def delete_user(self):
+        """Handle deleting a user."""
+        try:
+            user_id = self.delete_user_combo.currentData()
+            if not user_id:
+                raise ValueError("Please select a user")
+
+            # Confirm deletion
+            reply = QtWidgets.QMessageBox.question(
+                None,
+                'Confirm Deletion',
+                'Are you sure you want to delete this user? This will remove their personal information but keep their associated records.',
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+
+            if reply == QtWidgets.QMessageBox.Yes:
+                # First, set all foreign key references to NULL
+                tables_to_update = [
+                    "expenses",
+                    "merchandise",
+                    "clockTable",
+                    "employee_close",
+                    "Bonuses"
+                ]
+
+                for table in tables_to_update:
+                    query = f"UPDATE {table} SET employee_id = NULL WHERE employee_id = %s"
+                    data = (user_id,)
+                    connect(query, data)
+
+                # Now delete the user
+                query = "DELETE FROM employee WHERE employee_id = %s"
+                data = (user_id,)
+                success = connect(query, data)
+
+                if success:
+                    QtWidgets.QMessageBox.information(None, "Success", "User deleted successfully")
+                    # Refresh user lists
+                    self._populate_user_combos()
+                else:
+                    raise Exception("Failed to delete user")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def _populate_user_combos(self):
+        """Populate the user combo boxes with all users."""
+        try:
+            query = """
+                SELECT employee_id, firstName, lastName, userName, role 
+                FROM employee 
+                ORDER BY role, lastName, firstName
+            """
+            results = connect(query, None)
+
+            if results:
+                # Clear existing items
+                self.edit_user_combo.clear()
+                self.delete_user_combo.clear()
+
+                # Add users to both combo boxes
+                for user in results:
+                    display_text = f"{user[1]} {user[2]} ({user[3]}) - {user[4]}"
+                    self.edit_user_combo.addItem(display_text, user[0])
+                    self.delete_user_combo.addItem(display_text, user[0])
+
+        except Exception as e:
+            print(f"Error populating user combos: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load users: {e}")
 
     def _retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
