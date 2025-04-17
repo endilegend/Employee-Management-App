@@ -1,15 +1,20 @@
 import sys
 import subprocess
-from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, QGraphicsDropShadowEffect)
+from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, QGraphicsDropShadowEffect, QSizePolicy, QStackedWidget)
 from PyQt5.QtGui import QPalette, QBrush, QPixmap
 from PyQt5.QtCore import Qt
 from sqlConnector import connect
+from employee import Ui_Dialog as EmployeePage  # Import Employee page
+from owner import Ui_Dialog as OwnerPage        # Import Owner page
+from manager import Ui_Dialog as ManagerPage    # Import Manager page
 
 class LoginForm(QWidget):
-	def __init__(self):
+	def __init__(self, stacked_widget):
 		super().__init__()
+		self.stacked_widget = stacked_widget  # Reference to the QStackedWidget
 		self.setWindowTitle('Login Form')
 		self.resize(500, 120)
+		self.setMinimumSize(400, 120)  # Set minimum window size
 
 		# Set background image
 		self.setAutoFillBackground(True)
@@ -24,6 +29,8 @@ class LoginForm(QWidget):
 			border-radius: 15px;
 			padding: 20px;
 		""")
+		# Set size policy to make container expand
+		container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 		# Add shadow effect to the container
 		shadow = QGraphicsDropShadowEffect()
@@ -32,6 +39,7 @@ class LoginForm(QWidget):
 		container.setGraphicsEffect(shadow)
 
 		container_layout = QGridLayout(container)
+		container_layout.setContentsMargins(20, 20, 20, 20)  # Add margins for better spacing
 
 		label_name = QLabel('<font size="4"> Username </font>')
 		self.lineEdit_username = QLineEdit()
@@ -48,7 +56,7 @@ class LoginForm(QWidget):
 		label_password = QLabel('<font size="4"> Password </font>')
 		self.lineEdit_password = QLineEdit()
 		self.lineEdit_password.setPlaceholderText('Enter password')
-		self.lineEdit_password.setEchoMode(QLineEdit.Password)  # Set password echo mode
+		self.lineEdit_password.setEchoMode(QLineEdit.Password)
 		self.lineEdit_password.setStyleSheet("""
 			border: 1px solid #ccc;
 			border-radius: 10px;
@@ -73,7 +81,10 @@ class LoginForm(QWidget):
 
 		# Center the white box on the main layout
 		main_layout = QGridLayout(self)
+		main_layout.setContentsMargins(50, 50, 50, 50)  # Add margins for better spacing
 		main_layout.addWidget(container, 0, 0, 1, 1, alignment=Qt.AlignCenter)
+		main_layout.setRowStretch(0, 1)  # Make the row stretchable
+		main_layout.setColumnStretch(0, 1)  # Make the column stretchable
 		self.setLayout(main_layout)
 
 	def check_password(self):
@@ -87,27 +98,57 @@ class LoginForm(QWidget):
 		results = connect(query, data)
 
 		if results and len(results) > 0:
-			role = results[0][4]  # Assuming the role is in the 5th column (index 4)
+			# Debug: Print the query result to verify its structure
+			print(f"Query Result: {results}")
+
+			# Extract the role from the correct column (assuming 'role' is the 6th column)
+			role = results[0][5]  # Column index for 'role' (0-based index)
+			print(f"Login successful. Role: {role}")  # Debug print
 			msg.setText('Login Successful')
 			msg.exec_()
 
 			# Redirect based on role
 			if role == 'owner':
-				subprocess.Popen(["python3", "owner.py"])
+				self.redirect_to_owner()
 			elif role == 'manager':
-				subprocess.Popen(["python3", "manager.py"])
+				self.redirect_to_manager()
 			elif role == 'employee':
-				subprocess.Popen(["python3", "employee.py"])
-
-			QApplication.instance().quit()  # Properly quit the application
+				self.redirect_to_employee()
 		else:
+			print("Invalid username or password.")  # Debug print
 			msg.setText('Invalid Username or Password')
 			msg.exec_()
+
+	def redirect_to_employee(self):
+		print("Redirecting to Employee Page...")  # Debug print
+		employee_page = QWidget()
+		employee_ui = EmployeePage()
+		employee_ui.setupUi(employee_page)
+		self.stacked_widget.addWidget(employee_page)
+		self.stacked_widget.setCurrentWidget(employee_page)
+
+	def redirect_to_owner(self):
+		print("Redirecting to Owner Page...")  # Debug print
+		owner_page = QWidget()
+		owner_ui = OwnerPage()
+		owner_ui.setupUi(owner_page)
+		self.stacked_widget.addWidget(owner_page)
+		self.stacked_widget.setCurrentWidget(owner_page)
+
+	def redirect_to_manager(self):
+		print("Redirecting to Manager Page...")  # Debug print
+		manager_page = QWidget()
+		manager_ui = ManagerPage()
+		manager_ui.setupUi(manager_page)
+		self.stacked_widget.addWidget(manager_page)
+		self.stacked_widget.setCurrentWidget(manager_page)
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
 
-	form = LoginForm()
-	form.show()
+	stacked_widget = QStackedWidget()
+	form = LoginForm(stacked_widget)
+	stacked_widget.addWidget(form)
+	stacked_widget.show()
 
 	sys.exit(app.exec_())

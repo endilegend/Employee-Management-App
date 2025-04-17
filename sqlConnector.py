@@ -1,16 +1,15 @@
 import mysql.connector
 from mysql.connector import Error
 
-# chatgpt help to connect sql with python
-def connect(query,data):
+def connect(query, data):
     conn = None
     try:
-        # Establish connection to MySQL
+        # Establish connection to MySQL using hardcoded credentials
         conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="root",
-            database="employee_db"
+            host="localhost",  
+            user="root",       
+            password="root",      
+            database="employee_db"  
         )
 
         # Check if the connection was successful
@@ -18,17 +17,17 @@ def connect(query,data):
             print("Connection established successfully.")
 
             # Create a cursor object to interact with the database
-            cursor = conn.cursor( buffered=True)
+            cursor = conn.cursor(buffered=True)
 
             # Execute a simple query
             cursor.execute(query, data)
 
-            # If it's a SELECT query, fetch and print results
+            # If it's a SELECT query, fetch and return results
             if query.lower().startswith("select"):
                 results = cursor.fetchall()
                 # If no results, send admin as username and owner as role
                 if not results:
-                     return [(None, None, 'admin', None, 'owner')]
+                    return [(None, None, 'admin', None, 'owner')]
 
                 cursor.close()
                 return results

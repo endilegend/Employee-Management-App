@@ -7,7 +7,7 @@ class EMSApplication(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EMS Application")
-        self.setWindowIcon(QIcon("icon.jpsg"))  # Set the application icon
+        self.setWindowIcon(QIcon("icon.jpg"))  # Set the application icon
         self.showFullScreen()  # Start in full-screen mode
 
         # Create a stacked widget to manage different screens
@@ -15,8 +15,9 @@ class EMSApplication(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         # Add the login screen as the default screen
-        self.login_screen = LoginForm()
+        self.login_screen = LoginForm(self.central_widget)  # Pass QStackedWidget to LoginForm
         self.central_widget.addWidget(self.login_screen)
+        print("Login screen added to QStackedWidget.")  # Debug print
 
 def main():
     app = QApplication(sys.argv)
