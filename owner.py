@@ -281,7 +281,7 @@ class Ui_OwnerDialog(object):
         self.page_merchandise = self._create_merchandise_page()
         self.page_emp_hist = self._create_employee_history_page()
         self.page_exp_hist = self._create_expenses_history_page()
-        self.page_merch_hist = self._add_placeholder_page("Merchandise History")
+        self.page_merch_hist = self._create_merchandise_history_page()
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
         self.page_payroll = self._add_placeholder_page("Payroll")
         self.page_manage_emp = self._add_placeholder_page("Manage Employees")
@@ -2222,6 +2222,373 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error loading expenses history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load expenses history: {e}")
+
+    def _create_merchandise_history_page(self):
+        """Create the merchandise history page with comprehensive view."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Merchandise History")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Store selector
+        self.merchandise_store_combo = QtWidgets.QComboBox()
+        self.merchandise_store_combo.setFixedWidth(250)
+        self.merchandise_store_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        self.populate_merchandise_stores()
+        controls_layout.addWidget(self.merchandise_store_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.merchandise_prev_week_btn = QtWidgets.QPushButton("←")
+        self.merchandise_prev_week_btn.setFixedSize(40, 40)
+        self.merchandise_prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.merchandise_week_label = QtWidgets.QLabel()
+        self.merchandise_week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.merchandise_week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.merchandise_next_week_btn = QtWidgets.QPushButton("→")
+        self.merchandise_next_week_btn.setFixedSize(40, 40)
+        self.merchandise_next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.merchandise_prev_week_btn)
+        week_nav_layout.addWidget(self.merchandise_week_label)
+        week_nav_layout.addWidget(self.merchandise_next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.merchandise_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.merchandise_calendar_btn.setFixedHeight(40)
+        self.merchandise_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.merchandise_calendar_btn)
+
+        # Refresh button
+        self.merchandise_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.merchandise_refresh_btn.setFixedHeight(40)
+        self.merchandise_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.merchandise_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Merchandise table
+        self.merchandise_table = QtWidgets.QTableWidget()
+        self.merchandise_table.setColumnCount(6)
+        self.merchandise_table.setHorizontalHeaderLabels([
+            "Date", "Type", "Quantity", "Unit Price", "Total", "Employee"
+        ])
+        self.merchandise_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.merchandise_table.setAlternatingRowColors(True)
+        self.merchandise_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.merchandise_table)
+
+        # Total merchandise label
+        self.merchandise_total_label = QtWidgets.QLabel()
+        self.merchandise_total_label.setStyleSheet("""
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            padding: 10px;
+        """)
+        self.merchandise_total_label.setAlignment(QtCore.Qt.AlignRight)
+        main_layout.addWidget(self.merchandise_total_label)
+
+        # Initialize current week
+        self.merchandise_current_week_start = self.get_week_start_date()
+        self.update_merchandise_week_label()
+        
+        # Connect signals
+        self.merchandise_store_combo.currentIndexChanged.connect(self.load_merchandise_history)
+        self.merchandise_prev_week_btn.clicked.connect(self.merchandise_previous_week)
+        self.merchandise_next_week_btn.clicked.connect(self.merchandise_next_week)
+        self.merchandise_calendar_btn.clicked.connect(self.merchandise_show_calendar)
+        self.merchandise_refresh_btn.clicked.connect(self.load_merchandise_history)
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_merchandise_stores(self):
+        """Populate the merchandise store combo box with store names and IDs."""
+        try:
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                self.merchandise_store_combo.clear()
+                for store in results:
+                    self.merchandise_store_combo.addItem(store[1], store[0])  # Store name and ID
+        except Exception as e:
+            print(f"Error populating merchandise stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def update_merchandise_week_label(self):
+        """Update the merchandise week label with the current week range."""
+        week_end = self.merchandise_current_week_start.addDays(6)
+        self.merchandise_week_label.setText(
+            f"{self.merchandise_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_merchandise_history()
+
+    def merchandise_previous_week(self):
+        """Navigate to the previous week in merchandise history."""
+        self.merchandise_current_week_start = self.merchandise_current_week_start.addDays(-7)
+        self.update_merchandise_week_label()
+
+    def merchandise_next_week(self):
+        """Navigate to the next week in merchandise history."""
+        self.merchandise_current_week_start = self.merchandise_current_week_start.addDays(7)
+        self.update_merchandise_week_label()
+
+    def merchandise_show_calendar(self):
+        """Show calendar dialog to select a date for merchandise history."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.merchandise_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.merchandise_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_merchandise_week_label()
+
+    def load_merchandise_history(self):
+        """Load the merchandise history for the selected store and week."""
+        store_id = self.merchandise_store_combo.currentData()
+        if not store_id:
+            return
+
+        try:
+            week_end = self.merchandise_current_week_start.addDays(6)
+            
+            query = """
+                SELECT 
+                    m.merchandise_date,
+                    m.merchandise_type,
+                    m.quantity,
+                    m.unitPrice,
+                    emp.firstName,
+                    emp.lastName
+                FROM merchandise m
+                JOIN employee emp ON m.employee_id = emp.employee_id
+                WHERE m.store_id = %s 
+                AND m.merchandise_date BETWEEN %s AND %s
+                ORDER BY m.merchandise_date DESC
+            """
+            data = (
+                store_id,
+                self.merchandise_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.merchandise_table.setRowCount(0)
+            
+            total_value = 0.0
+            
+            if results:
+                for row_data in results:
+                    row = self.merchandise_table.rowCount()
+                    self.merchandise_table.insertRow(row)
+                    
+                    # Format date
+                    date = row_data[0].strftime("%Y-%m-%d")
+                    
+                    # Calculate total for this item
+                    quantity = int(row_data[2])
+                    unit_price = float(row_data[3])
+                    item_total = quantity * unit_price
+                    total_value += item_total
+                    
+                    # Format amounts
+                    unit_price_str = f"${unit_price:.2f}"
+                    item_total_str = f"${item_total:.2f}"
+                    
+                    # Format employee name
+                    employee_name = f"{row_data[4]} {row_data[5]}"
+                    
+                    # Add items to table
+                    self.merchandise_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
+                    self.merchandise_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
+                    self.merchandise_table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(quantity)))
+                    self.merchandise_table.setItem(row, 3, QtWidgets.QTableWidgetItem(unit_price_str))
+                    self.merchandise_table.setItem(row, 4, QtWidgets.QTableWidgetItem(item_total_str))
+                    self.merchandise_table.setItem(row, 5, QtWidgets.QTableWidgetItem(employee_name))
+                    
+                    # Center align all items
+                    for col in range(6):
+                        self.merchandise_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
+            
+            # Update total label
+            self.merchandise_total_label.setText(f"Total Value: ${total_value:.2f}")
+            
+            # Resize columns to fit content
+            self.merchandise_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading merchandise history: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load merchandise history: {e}")
 
     def _retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
