@@ -9,6 +9,12 @@ CREATE TABLE IF NOT EXISTS expenses (
     employee_id INT,
     FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 );
+CREATE TABLE IF NOT EXISTS merchandise (
+    merchandise_id INT PRIMARY KEY AUTO_INCREMENT,
+    merchandise_type VARCHAR(150),
+    merchandise_date DATE,
+    FOREIGN KEY (merchandise_id) REFERENCES employee(employee_id)
+);
 
 
 # user information
