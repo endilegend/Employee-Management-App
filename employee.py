@@ -1,4 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
+from sqlConnector import connect  # Import the database connection function
 
 
 class Ui_Dialog(object):
@@ -68,7 +69,6 @@ class Ui_Dialog(object):
         # Add store combo box with modern style
         self.store_combo = QtWidgets.QComboBox()
         self.store_combo.setFixedWidth(200)
-        self.store_combo.addItem("Select Store")
         self.store_combo.setStyleSheet("""
             QComboBox {
                 background-color: white;
@@ -92,6 +92,12 @@ class Ui_Dialog(object):
             }
         """)
         self.top_bar_layout.addWidget(self.store_combo)
+        
+        # Fetch stores from the database and populate the combo box
+        self.populate_stores()
+
+        # Connect the combo box to update the store name label
+        self.store_combo.currentIndexChanged.connect(self.update_store_name)
         
         # Add top bar to main layout
         self.main_layout.addWidget(self.top_bar)
@@ -209,6 +215,26 @@ class Ui_Dialog(object):
         print("Signing out...")  # Debug print
         if self.stacked_widget:
             self.stacked_widget.setCurrentIndex(0)  # Redirect to the login screen
+
+    def populate_stores(self):
+        """Fetch stores from the database and populate the combo box."""
+        query = "SELECT store_name FROM Store"
+        results = connect(query, None)
+
+        if results:
+            # Set the first store as the default
+            first_store = results[0][0]
+            self.store_name_label.setText(first_store)
+            self.store_combo.addItem(first_store)
+
+            # Add the rest of the stores to the combo box
+            for store in results[1:]:
+                self.store_combo.addItem(store[0])
+
+    def update_store_name(self):
+        """Update the store name label when a new store is selected."""
+        selected_store = self.store_combo.currentText()
+        self.store_name_label.setText(selected_store)
 
     def create_clock_in_frame(self):
         self.btnClockIn = QtWidgets.QWidget()
