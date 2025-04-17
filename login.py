@@ -132,7 +132,7 @@ class LoginForm(QWidget):
 		print("Redirecting to Owner Page...")  # Debug print
 		owner_page = QWidget()
 		owner_ui = OwnerPage()
-		owner_ui.setupUi(owner_page)
+		owner_ui.setupUi(owner_page, self.stacked_widget, self.employee_id)  # Pass both stacked_widget and employee_id
 		self.stacked_widget.addWidget(owner_page)
 		self.stacked_widget.setCurrentWidget(owner_page)
 
