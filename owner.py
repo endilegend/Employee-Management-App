@@ -200,6 +200,8 @@ class Ui_OwnerDialog(object):
 
         # Button text and colors
         buttons_def = [
+            ("Clock In", "#2ecc71"),
+            ("Clock Out", "#e74c3c"),
             ("Enter Invoice", "#16a085"),
             ("Enter Expense", "#c0392b"),
             ("Enter Merchandise", "#8e44ad"),
@@ -271,8 +273,10 @@ class Ui_OwnerDialog(object):
             """QStackedWidget { background-color: white; border-radius: 8px; border: 1px solid #e0e0e0; }"""
         )
 
-        # Create empty placeholder pages
-        self.page_invoice = self._add_placeholder_page("Enter Invoice")
+        # Create pages
+        self.page_clock_in = self._create_clock_in_page()
+        self.page_clock_out = self._create_clock_out_page()
+        self.page_invoice = self._create_invoice_page()
         self.page_expense = self._add_placeholder_page("Enter Expense")
         self.page_merchandise = self._add_placeholder_page("Enter Merchandise")
         self.page_emp_hist = self._add_placeholder_page("Employee History")
@@ -288,6 +292,8 @@ class Ui_OwnerDialog(object):
 
         # ---------- Connections ----------
         mapping = {
+            "Clock In": self.page_clock_in,
+            "Clock Out": self.page_clock_out,
             "Enter Invoice": self.page_invoice,
             "Enter Expense": self.page_expense,
             "Enter Merchandise": self.page_merchandise,
@@ -300,6 +306,506 @@ class Ui_OwnerDialog(object):
         }
         for text, btn in self.sidebar_buttons.items():
             btn.clicked.connect(lambda checked, w=mapping[text]: self.stackedWidget.setCurrentWidget(w))
+
+    def _create_clock_in_page(self):
+        """Create the clock in page."""
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(20)
+
+        # Title
+        title = QtWidgets.QLabel("Clock In")
+        title.setStyleSheet("""
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        """)
+        layout.addWidget(title)
+
+        # Balance input
+        self.reg_in_balance = QtWidgets.QLineEdit()
+        self.reg_in_balance.setPlaceholderText("Enter Register Balance")
+        self.reg_in_balance.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 16px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        layout.addWidget(self.reg_in_balance)
+
+        # Clock In button
+        self.clock_in_btn = QtWidgets.QPushButton("Clock In")
+        self.clock_in_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+            QPushButton:pressed {
+                background-color: #219653;
+            }
+        """)
+        self.clock_in_btn.clicked.connect(self.clock_in)
+        layout.addWidget(self.clock_in_btn)
+
+        layout.addStretch()
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def _create_clock_out_page(self):
+        """Create the clock out page."""
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(20)
+
+        # Title
+        title = QtWidgets.QLabel("Clock Out")
+        title.setStyleSheet("""
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        """)
+        layout.addWidget(title)
+
+        # Balance input
+        self.reg_out_balance = QtWidgets.QLineEdit()
+        self.reg_out_balance.setPlaceholderText("Enter Register Balance")
+        self.reg_out_balance.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 16px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        layout.addWidget(self.reg_out_balance)
+
+        # Clock Out button
+        self.clock_out_btn = QtWidgets.QPushButton("Clock Out")
+        self.clock_out_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+            QPushButton:pressed {
+                background-color: #a93226;
+            }
+        """)
+        self.clock_out_btn.clicked.connect(self.clock_out)
+        layout.addWidget(self.clock_out_btn)
+
+        layout.addStretch()
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def _create_invoice_page(self):
+        """Create the invoice page with input fields and submit functionality."""
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(20)
+
+        # Title
+        title = QtWidgets.QLabel("Enter Invoice")
+        title.setStyleSheet("""
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        """)
+        layout.addWidget(title)
+
+        # Create form layout
+        form_layout = QtWidgets.QFormLayout()
+        form_layout.setSpacing(15)
+        form_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Invoice ID input
+        self.invoice_id_input = QtWidgets.QLineEdit()
+        self.invoice_id_input.setPlaceholderText("Enter Invoice ID")
+        self.invoice_id_input.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        form_layout.addRow("Invoice ID:", self.invoice_id_input)
+
+        # Date input
+        self.date_input = QtWidgets.QDateEdit()
+        self.date_input.setCalendarPopup(True)
+        self.date_input.setDate(QtCore.QDate.currentDate())
+        self.date_input.setStyleSheet("""
+            QDateEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QDateEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        form_layout.addRow("Date:", self.date_input)
+
+        # Company input
+        self.company_input = QtWidgets.QLineEdit()
+        self.company_input.setPlaceholderText("Enter Company Name")
+        self.company_input.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        form_layout.addRow("Company:", self.company_input)
+
+        # Paid status combo box
+        self.paid_status_combo = QtWidgets.QComboBox()
+        self.paid_status_combo.addItems(["Yes", "No"])
+        self.paid_status_combo.setStyleSheet("""
+            QComboBox {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: url(down_arrow.png);
+                width: 12px;
+                height: 12px;
+            }
+        """)
+        form_layout.addRow("Paid Status:", self.paid_status_combo)
+
+        # Amount input
+        self.amount_input = QtWidgets.QLineEdit()
+        self.amount_input.setPlaceholderText("Enter Amount")
+        self.amount_input.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        form_layout.addRow("Amount:", self.amount_input)
+
+        # Amount paid input
+        self.amount_paid_input = QtWidgets.QLineEdit()
+        self.amount_paid_input.setPlaceholderText("Enter Amount Paid")
+        self.amount_paid_input.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """)
+        form_layout.addRow("Amount Paid:", self.amount_paid_input)
+
+        # Add form layout to main layout
+        layout.addLayout(form_layout)
+
+        # Submit button
+        self.submit_btn = QtWidgets.QPushButton("Submit Invoice")
+        self.submit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16a085;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 20px;
+            }
+            QPushButton:hover {
+                background-color: #149174;
+            }
+            QPushButton:pressed {
+                background-color: #117a65;
+            }
+        """)
+        self.submit_btn.clicked.connect(self.submit_invoice)
+        layout.addWidget(self.submit_btn)
+
+        layout.addStretch()
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def submit_invoice(self):
+        """Handle the invoice submission."""
+        print("Attempting to submit invoice...")
+        
+        # Validate inputs
+        try:
+            invoice_id = int(self.invoice_id_input.text())
+            date = self.date_input.date().toPyDate()
+            company = self.company_input.text().strip()
+            paid_status = "paid" if self.paid_status_combo.currentText() == "Yes" else "unpaid"
+            amount = float(self.amount_input.text())
+            amount_paid = float(self.amount_paid_input.text()) if self.amount_paid_input.text() else 0.0
+
+            if not company:
+                raise ValueError("Company name cannot be empty")
+            if amount <= 0:
+                raise ValueError("Amount must be greater than 0")
+            if amount_paid < 0:
+                raise ValueError("Amount paid cannot be negative")
+            if amount_paid > amount:
+                raise ValueError("Amount paid cannot be greater than total amount")
+
+        except ValueError as e:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", str(e))
+            print(f"Input validation error: {e}")
+            return
+
+        # Insert into database
+        try:
+            query = """
+                INSERT INTO Invoice 
+                (invoice_id, company_name, amount_due, due_date, paid_status, payment_date)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            data = (
+                invoice_id,
+                company,
+                amount,
+                date,
+                paid_status,
+                date if paid_status == "paid" else None
+            )
+            print(f"Inserting invoice record. Query: {query}, Data: {data}")
+            success = connect(query, data)
+            print(f"Invoice insert result: {success}")
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Invoice submitted successfully.")
+                # Clear input fields
+                self.invoice_id_input.clear()
+                self.date_input.setDate(QtCore.QDate.currentDate())
+                self.company_input.clear()
+                self.paid_status_combo.setCurrentIndex(0)
+                self.amount_input.clear()
+                self.amount_paid_input.clear()
+                print("Invoice submission successful")
+            else:
+                QtWidgets.QMessageBox.critical(None, "Error", "Failed to submit invoice.")
+                print("Error: Invoice insert failed")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit invoice: {e}")
+            print(f"Error during invoice submission: {e}")
+
+    def clock_in(self):
+        """Handle the clock-in operation."""
+        print(f"Attempting to clock in employee ID: {self.employee_id}")
+        
+        if not self.employee_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
+            print("Error: Employee ID is missing")
+            return
+
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+
+        # Get the current time
+        try:
+            from datetime import datetime
+            current_time = datetime.now()
+            print(f"Current time: {current_time}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get current time: {e}")
+            print(f"Error getting current time: {e}")
+            return
+
+        # Get the cash-in value from the input
+        try:
+            reg_in = float(self.reg_in_balance.text())
+            print(f"Register in amount: ${reg_in:.2f}")
+        except ValueError:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", "Please enter a valid cash-in amount.")
+            print("Error: Invalid cash-in amount")
+            return
+
+        # Check if the employee is already clocked in
+        try:
+            query = "SELECT * FROM clockTable WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL"
+            data = (self.employee_id, self.store_id)
+            print(f"Checking if employee is already clocked in. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Clock-in check results: {results}")
+
+            if results:
+                QtWidgets.QMessageBox.warning(None, "Already Clocked In", "You are already clocked in. Please clock out first.")
+                print("Error: Employee already clocked in")
+                return
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to check clock-in status: {e}")
+            print(f"Error checking clock-in status: {e}")
+            return
+
+        # Insert a new clock-in entry
+        try:
+            query = """
+                INSERT INTO clockTable (employee_id, store_id, clock_in, reg_in)
+                VALUES (%s, %s, %s, %s)
+            """
+            data = (self.employee_id, self.store_id, current_time, reg_in)
+            print(f"Inserting clock-in record. Query: {query}, Data: {data}")
+            success = connect(query, data)
+            print(f"Clock-in insert result: {success}")
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Clock-In Successful", "You have successfully clocked in.")
+                self.reg_in_balance.clear()  # Clear the input field
+                print("Clock-in successful")
+            else:
+                QtWidgets.QMessageBox.critical(None, "Clock-In Failed", "An error occurred while clocking in.")
+                print("Error: Clock-in insert failed")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to clock in: {e}")
+            print(f"Error during clock-in: {e}")
+
+    def clock_out(self):
+        """Handle the clock-out operation."""
+        print(f"Attempting to clock out employee ID: {self.employee_id}")
+        
+        if not self.employee_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
+            print("Error: Employee ID is missing")
+            return
+
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+
+        # Get the current time
+        try:
+            from datetime import datetime
+            current_time = datetime.now()
+            print(f"Current time: {current_time}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get current time: {e}")
+            print(f"Error getting current time: {e}")
+            return
+
+        # Get the cash-out value from the input
+        try:
+            reg_out = float(self.reg_out_balance.text())
+            print(f"Register out amount: ${reg_out:.2f}")
+        except ValueError:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", "Please enter a valid cash-out amount.")
+            print("Error: Invalid cash-out amount")
+            return
+
+        # Check if the employee is clocked in
+        try:
+            query = "SELECT * FROM clockTable WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL"
+            data = (self.employee_id, self.store_id)
+            print(f"Checking if employee is clocked in. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Clock-out check results: {results}")
+
+            if not results:
+                QtWidgets.QMessageBox.warning(None, "Not Clocked In", "You are not clocked in. Please clock in first.")
+                print("Error: Employee not clocked in")
+                return
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to check clock-out status: {e}")
+            print(f"Error checking clock-out status: {e}")
+            return
+
+        # Update the clock-out entry
+        try:
+            query = """
+                UPDATE clockTable
+                SET clock_out = %s, reg_out = %s
+                WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL
+            """
+            data = (current_time, reg_out, self.employee_id, self.store_id)
+            print(f"Updating clock-out record. Query: {query}, Data: {data}")
+            success = connect(query, data)
+            print(f"Clock-out update result: {success}")
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Clock-Out Successful", "You have successfully clocked out.")
+                self.reg_out_balance.clear()  # Clear the input field
+                print("Clock-out successful")
+            else:
+                QtWidgets.QMessageBox.critical(None, "Clock-Out Failed", "An error occurred while clocking out.")
+                print("Error: Clock-out update failed")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to clock out: {e}")
+            print(f"Error during clock-out: {e}")
 
     def sign_out(self):
         """Handle the sign-out operation."""
