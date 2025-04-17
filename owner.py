@@ -208,6 +208,7 @@ class Ui_OwnerDialog(object):
             ("Employee History", "#2980b9"),
             ("Expenses History", "#d35400"),
             ("Merchandise History", "#2ecc71"),
+            ("Close History", "#3498db"),  # Added Close History button
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
             ("Manage Employees", "#95a5a6"),
@@ -282,6 +283,7 @@ class Ui_OwnerDialog(object):
         self.page_emp_hist = self._create_employee_history_page()
         self.page_exp_hist = self._create_expenses_history_page()
         self.page_merch_hist = self._create_merchandise_history_page()
+        self.page_close_hist = self._create_close_history_page()  # Added close history page
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
         self.page_payroll = self._add_placeholder_page("Payroll")
         self.page_manage_emp = self._add_placeholder_page("Manage Employees")
@@ -300,6 +302,7 @@ class Ui_OwnerDialog(object):
             "Employee History": self.page_emp_hist,
             "Expenses History": self.page_exp_hist,
             "Merchandise History": self.page_merch_hist,
+            "Close History": self.page_close_hist,  # Added close history mapping
             "Gross Profit": self.page_gross_profit,
             "Payroll": self.page_payroll,
             "Manage Employees": self.page_manage_emp,
@@ -2596,6 +2599,359 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error loading merchandise history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load merchandise history: {e}")
+
+    def _create_close_history_page(self):
+        """Create the close history page with comprehensive view."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Close History")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Store selector
+        self.close_store_combo = QtWidgets.QComboBox()
+        self.close_store_combo.setFixedWidth(250)
+        self.close_store_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        self.populate_close_stores()
+        controls_layout.addWidget(self.close_store_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.close_prev_week_btn = QtWidgets.QPushButton("←")
+        self.close_prev_week_btn.setFixedSize(40, 40)
+        self.close_prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.close_week_label = QtWidgets.QLabel()
+        self.close_week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.close_week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.close_next_week_btn = QtWidgets.QPushButton("→")
+        self.close_next_week_btn.setFixedSize(40, 40)
+        self.close_next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.close_prev_week_btn)
+        week_nav_layout.addWidget(self.close_week_label)
+        week_nav_layout.addWidget(self.close_next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.close_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.close_calendar_btn.setFixedHeight(40)
+        self.close_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.close_calendar_btn)
+
+        # Refresh button
+        self.close_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.close_refresh_btn.setFixedHeight(40)
+        self.close_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.close_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Close history table
+        self.close_table = QtWidgets.QTableWidget()
+        self.close_table.setColumnCount(8)
+        self.close_table.setHorizontalHeaderLabels([
+            "Date", "Employee", "Store", "Credit", "Cash in Envelope", 
+            "Expenses", "Total", "Comments"
+        ])
+        self.close_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.close_table.setAlternatingRowColors(True)
+        self.close_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.close_table)
+
+        # Initialize current week
+        self.close_current_week_start = self.get_week_start_date()
+        self.update_close_week_label()
+        
+        # Connect signals
+        self.close_store_combo.currentIndexChanged.connect(self.load_close_history)
+        self.close_prev_week_btn.clicked.connect(self.close_previous_week)
+        self.close_next_week_btn.clicked.connect(self.close_next_week)
+        self.close_calendar_btn.clicked.connect(self.close_show_calendar)
+        self.close_refresh_btn.clicked.connect(self.load_close_history)
+
+        # Add shadow effect to the page
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 0)
+        page.setGraphicsEffect(shadow)
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_close_stores(self):
+        """Populate the close history store combo box with store names and IDs."""
+        try:
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                self.close_store_combo.clear()
+                for store in results:
+                    self.close_store_combo.addItem(store[1], store[0])  # Store name and ID
+                # Set the first store as default
+                if results:
+                    self.close_store_combo.setCurrentIndex(0)
+        except Exception as e:
+            print(f"Error populating close stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def update_close_week_label(self):
+        """Update the close history week label with the current week range."""
+        week_end = self.close_current_week_start.addDays(6)
+        self.close_week_label.setText(
+            f"{self.close_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_close_history()
+
+    def close_previous_week(self):
+        """Navigate to the previous week in close history."""
+        self.close_current_week_start = self.close_current_week_start.addDays(-7)
+        self.update_close_week_label()
+
+    def close_next_week(self):
+        """Navigate to the next week in close history."""
+        self.close_current_week_start = self.close_current_week_start.addDays(7)
+        self.update_close_week_label()
+
+    def close_show_calendar(self):
+        """Show calendar dialog to select a date for close history."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.close_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.close_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_close_week_label()
+
+    def load_close_history(self):
+        """Load the close history for the selected store and week."""
+        store_id = self.close_store_combo.currentData()
+        if not store_id:
+            return
+
+        try:
+            week_end = self.close_current_week_start.addDays(6)
+            
+            query = """
+                SELECT 
+                    DATE(ec.timestamp) as date,
+                    CONCAT(ec.firstName, ' ', ec.lastName) as employee_name,
+                    ec.store_name,
+                    ec.credit,
+                    ec.cash_in_envelope,
+                    ec.expense,
+                    (ec.credit + ec.cash_in_envelope - ec.expense) as total,
+                    ec.comments
+                FROM employee_close ec
+                WHERE ec.store_name = (
+                    SELECT store_name FROM Store WHERE store_id = %s
+                )
+                AND DATE(ec.timestamp) BETWEEN %s AND %s
+                ORDER BY ec.timestamp DESC
+            """
+            data = (
+                store_id,
+                self.close_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.close_table.setRowCount(0)
+            
+            if results:
+                for row_data in results:
+                    row = self.close_table.rowCount()
+                    self.close_table.insertRow(row)
+                    
+                    # Format date
+                    date = row_data[0].strftime("%Y-%m-%d")
+                    
+                    # Format amounts
+                    credit = f"${float(row_data[3]):.2f}" if row_data[3] is not None else "-"
+                    cash = f"${float(row_data[4]):.2f}" if row_data[4] is not None else "-"
+                    expense = f"${float(row_data[5]):.2f}" if row_data[5] is not None else "-"
+                    total = f"${float(row_data[6]):.2f}" if row_data[6] is not None else "-"
+                    
+                    # Add items to table
+                    self.close_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
+                    self.close_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
+                    self.close_table.setItem(row, 2, QtWidgets.QTableWidgetItem(row_data[2]))
+                    self.close_table.setItem(row, 3, QtWidgets.QTableWidgetItem(credit))
+                    self.close_table.setItem(row, 4, QtWidgets.QTableWidgetItem(cash))
+                    self.close_table.setItem(row, 5, QtWidgets.QTableWidgetItem(expense))
+                    self.close_table.setItem(row, 6, QtWidgets.QTableWidgetItem(total))
+                    self.close_table.setItem(row, 7, QtWidgets.QTableWidgetItem(row_data[7] or ""))
+                    
+                    # Center align all items except comments
+                    for col in range(7):
+                        self.close_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
+            
+            # Resize columns to fit content
+            self.close_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading close history: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load close history: {e}")
 
     def _retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
