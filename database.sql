@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS merchandise (
     merchandise_date DATE,
     quantity INT,
     unitPrice DECIMAL(10, 2),
-    totalPrice DECIMAL(10, 2),
     FOREIGN KEY (merchandise_id) REFERENCES employee(employee_id)
 );
 
