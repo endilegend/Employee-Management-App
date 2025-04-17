@@ -7,12 +7,16 @@ CREATE TABLE IF NOT EXISTS expenses (
     expense_type VARCHAR(150),
     expense_date DATE,
     employee_id INT,
+    quantity INT,
     FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 );
 CREATE TABLE IF NOT EXISTS merchandise (
     merchandise_id INT PRIMARY KEY AUTO_INCREMENT,
     merchandise_type VARCHAR(150),
     merchandise_date DATE,
+    quantity INT,
+    unitPrice DECIMAL(10, 2),
+    totalPrice DECIMAL(10, 2),
     FOREIGN KEY (merchandise_id) REFERENCES employee(employee_id)
 );
 
