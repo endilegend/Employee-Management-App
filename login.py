@@ -3,6 +3,9 @@ import subprocess
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, QGraphicsDropShadowEffect, QSizePolicy, QStackedWidget)
 from PyQt5.QtGui import QPalette, QBrush, QPixmap
 from PyQt5.QtCore import Qt
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtCore import QUrl
+import os
 from sqlConnector import connect
 from employee import Ui_Dialog as EmployeePage  # Import Employee page
 from owner import Ui_OwnerDialog as OwnerPage  # Import Owner page
@@ -12,6 +15,7 @@ class LoginForm(QWidget):
 	def __init__(self, stacked_widget):
 		super().__init__()
 		self.stacked_widget = stacked_widget  # Reference to the QStackedWidget
+		self.media_player = QMediaPlayer()  # Initialize the media player
 		self.setWindowTitle('Login Form')
 		self.resize(500, 120)
 		self.setMinimumSize(400, 120)  # Set minimum window size
@@ -87,6 +91,20 @@ class LoginForm(QWidget):
 		main_layout.setColumnStretch(0, 1)  # Make the column stretchable
 		self.setLayout(main_layout)
 
+	def play_error_audio(self):
+		"""Play the error audio."""
+		try:
+			audio_path = os.path.abspath("wrong.mp4")  # Get absolute path
+			if not os.path.exists(audio_path):
+				print(f"Audio file not found: {audio_path}")
+				return
+			audio_url = QUrl.fromLocalFile(audio_path)
+			self.media_player.setMedia(QMediaContent(audio_url))
+			self.media_player.play()
+			print(f"Playing error audio: {audio_path}")
+		except Exception as e:
+			print(f"Error playing audio: {e}")
+
 	def check_password(self):
 		msg = QMessageBox()
 
@@ -116,6 +134,7 @@ class LoginForm(QWidget):
 			elif role == 'employee':
 				self.redirect_to_employee(self.employee_id)
 		else:
+			self.play_error_audio()  # Play error audio before showing the error message
 			print("Invalid username or password.")  # Debug print
 			msg.setText('Invalid Username or Password')
 			msg.exec_()
