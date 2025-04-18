@@ -15,7 +15,7 @@ from sqlConnector import connect
 # page modules
 from employee import Ui_Dialog        as EmployeePage
 from owner    import Ui_OwnerDialog   as OwnerPage
-from manager  import Ui_Dialog        as ManagerPage
+from manager  import Ui_ManagerDialog as ManagerPage  # Updated class name
 from lebron   import Ui_LebronDialog  as LebronPage   # special page
 
 
