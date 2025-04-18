@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS merchandise (
 );
 
 CREATE TABLE IF NOT EXISTS employee_close (
+                                              close_id INT AUTO_INCREMENT PRIMARY KEY,
                                               firstName VARCHAR(15),
                                               lastName VARCHAR(15),
                                               store_name VARCHAR(25),
@@ -53,7 +54,8 @@ CREATE TABLE IF NOT EXISTS employee_close (
                                               comments TEXT,
                                               employee_id INT,
                                               timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                              FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
+                                              FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+                                              UNIQUE KEY store_date_unique (store_name, DATE(timestamp))
 );
 
 CREATE TABLE IF NOT EXISTS clockTable (

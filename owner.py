@@ -1747,77 +1747,70 @@ class Ui_OwnerDialog(object):
             print(f"Error during clock-in: {e}")
 
     def clock_out(self):
-        """Handle the clock-out operation."""
-        print(f"Attempting to clock out employee ID: {self.employee_id}")
-        
-        if not self.employee_id:
-            QtWidgets.QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
-            print("Error: Employee ID is missing")
-            return
-
-        if not self.store_id:
-            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
-            print("Error: Store ID is missing")
-            return
-
-        # Get the current time
+        """Handle the clock out process."""
         try:
-            from datetime import datetime
-            current_time = datetime.now()
-            print(f"Current time: {current_time}")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get current time: {e}")
-            print(f"Error getting current time: {e}")
-            return
-
-        # Get the cash-out value from the input
-        try:
-            reg_out = float(self.reg_out_balance.text())
-            print(f"Register out amount: ${reg_out:.2f}")
-        except ValueError:
-            QtWidgets.QMessageBox.warning(None, "Invalid Input", "Please enter a valid cash-out amount.")
-            print("Error: Invalid cash-out amount")
-            return
-
-        # Check if the employee is clocked in
-        try:
-            query = "SELECT * FROM clockTable WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL"
-            data = (self.employee_id, self.store_id)
-            print(f"Checking if employee is clocked in. Query: {query}, Data: {data}")
-            results = connect(query, data)
-            print(f"Clock-out check results: {results}")
-
-            if not results:
-                QtWidgets.QMessageBox.warning(None, "Not Clocked In", "You are not clocked in. Please clock in first.")
-                print("Error: Employee not clocked in")
-                return
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to check clock-out status: {e}")
-            print(f"Error checking clock-out status: {e}")
-            return
-
-        # Update the clock-out entry
-        try:
-            query = """
-                UPDATE clockTable
-                SET clock_out = %s, reg_out = %s
-                WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL
+            # Get the current values
+            credit = float(self.credit_input.text()) if self.credit_input.text() else 0
+            cash = float(self.cash_input.text()) if self.cash_input.text() else 0
+            expense = float(self.expense_input.text()) if self.expense_input.text() else 0
+            comments = self.comments_input.toPlainText()
+            
+            # Validate inputs
+            if credit < 0 or cash < 0 or expense < 0:
+                raise ValueError("Values cannot be negative")
+            
+            # Get employee name
+            name_query = "SELECT firstName, lastName FROM employee WHERE employee_id = %s"
+            name_result = connect(name_query, (self.employee_id,))
+            if not name_result:
+                raise Exception("Could not find employee information")
+            
+            firstName, lastName = name_result[0]
+            
+            # Use REPLACE INTO to handle duplicate entries for the same store and date
+            close_query = """
+                REPLACE INTO employee_close 
+                (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
-            data = (current_time, reg_out, self.employee_id, self.store_id)
-            print(f"Updating clock-out record. Query: {query}, Data: {data}")
-            success = connect(query, data)
-            print(f"Clock-out update result: {success}")
-
-            if success:
-                QtWidgets.QMessageBox.information(None, "Clock-Out Successful", "You have successfully clocked out.")
-                self.reg_out_balance.clear()  # Clear the input field
-                print("Clock-out successful")
+            close_data = (
+                firstName,
+                lastName,
+                self.store_name,
+                credit,
+                cash,
+                expense,
+                comments,
+                self.employee_id
+            )
+            
+            close_success = connect(close_query, close_data)
+            if not close_success:
+                raise Exception("Failed to submit close information")
+            
+            # Update clock out time and register out amount
+            clock_query = """
+                UPDATE clockTable 
+                SET clock_out = NOW(),
+                    reg_out = %s
+                WHERE employee_id = %s 
+                AND DATE(clock_in) = CURDATE()
+                AND clock_out IS NULL
+            """
+            clock_data = (credit + cash, self.employee_id)
+            clock_success = connect(clock_query, clock_data)
+            
+            if clock_success:
+                QtWidgets.QMessageBox.information(None, "Success", "Successfully clocked out!")
+                if self.stacked_widget:
+                    self.stacked_widget.setCurrentIndex(0)  # Return to login page
             else:
-                QtWidgets.QMessageBox.critical(None, "Clock-Out Failed", "An error occurred while clocking out.")
-                print("Error: Clock-out update failed")
+                raise Exception("Failed to update clock out information")
+                
+        except ValueError as e:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", str(e))
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to clock out: {e}")
-            print(f"Error during clock-out: {e}")
 
     def sign_out(self):
         """Handle the sign-out operation."""
@@ -3078,16 +3071,20 @@ class Ui_OwnerDialog(object):
         try:
             week_end = self.close_current_week_start.addDays(6)
             
+            # Modified query to handle cases where close_id might not exist
             query = """
                 SELECT 
+                    COALESCE(ec.close_id, 0) as close_id,
                     DATE(ec.timestamp) as date,
                     CONCAT(ec.firstName, ' ', ec.lastName) as employee_name,
                     ec.store_name,
-                    ec.credit,
-                    ec.cash_in_envelope,
-                    ec.expense,
-                    (ec.credit + ec.cash_in_envelope - ec.expense) as total,
-                    ec.comments
+                    COALESCE(ec.credit, 0) as credit,
+                    COALESCE(ec.cash_in_envelope, 0) as cash_in_envelope,
+                    COALESCE(ec.expense, 0) as expense,
+                    COALESCE(ec.credit, 0) + COALESCE(ec.cash_in_envelope, 0) - COALESCE(ec.expense, 0) as total,
+                    ec.comments,
+                    ec.employee_id,
+                    ec.timestamp
                 FROM employee_close ec
                 WHERE ec.store_name = (
                     SELECT store_name FROM Store WHERE store_id = %s
@@ -3111,35 +3108,144 @@ class Ui_OwnerDialog(object):
                     row = self.close_table.rowCount()
                     self.close_table.insertRow(row)
                     
-                    # Format date
-                    date = row_data[0].strftime("%Y-%m-%d")
+                    # Store close data in the first column's UserRole
+                    date_item = QtWidgets.QTableWidgetItem(row_data[1].strftime("%Y-%m-%d"))
+                    date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    # Store both close_id and timestamp for accurate updating
+                    date_item.setData(QtCore.Qt.UserRole, {
+                        'close_id': row_data[0],
+                        'employee_id': row_data[9],
+                        'timestamp': row_data[10].strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                    self.close_table.setItem(row, 0, date_item)
                     
-                    # Format amounts
-                    credit = f"${float(row_data[3]):.2f}" if row_data[3] is not None else "-"
-                    cash = f"${float(row_data[4]):.2f}" if row_data[4] is not None else "-"
-                    expense = f"${float(row_data[5]):.2f}" if row_data[5] is not None else "-"
-                    total = f"${float(row_data[6]):.2f}" if row_data[6] is not None else "-"
+                    # Employee name (non-editable)
+                    emp_item = QtWidgets.QTableWidgetItem(row_data[2])
+                    emp_item.setFlags(emp_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.close_table.setItem(row, 1, emp_item)
                     
-                    # Add items to table
-                    self.close_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
-                    self.close_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
-                    self.close_table.setItem(row, 2, QtWidgets.QTableWidgetItem(row_data[2]))
-                    self.close_table.setItem(row, 3, QtWidgets.QTableWidgetItem(credit))
-                    self.close_table.setItem(row, 4, QtWidgets.QTableWidgetItem(cash))
-                    self.close_table.setItem(row, 5, QtWidgets.QTableWidgetItem(expense))
-                    self.close_table.setItem(row, 6, QtWidgets.QTableWidgetItem(total))
-                    self.close_table.setItem(row, 7, QtWidgets.QTableWidgetItem(row_data[7] or ""))
+                    # Store name (non-editable)
+                    store_item = QtWidgets.QTableWidgetItem(row_data[3])
+                    store_item.setFlags(store_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.close_table.setItem(row, 2, store_item)
                     
-                    # Center align all items except comments
-                    for col in range(7):
-                        self.close_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
+                    # Credit (editable)
+                    credit = float(row_data[4]) if row_data[4] is not None else 0.0
+                    credit_item = QtWidgets.QTableWidgetItem(f"${credit:.2f}")
+                    self.close_table.setItem(row, 3, credit_item)
+                    
+                    # Cash in envelope (editable)
+                    cash = float(row_data[5]) if row_data[5] is not None else 0.0
+                    cash_item = QtWidgets.QTableWidgetItem(f"${cash:.2f}")
+                    self.close_table.setItem(row, 4, cash_item)
+                    
+                    # Expense (editable)
+                    expense = float(row_data[6]) if row_data[6] is not None else 0.0
+                    expense_item = QtWidgets.QTableWidgetItem(f"${expense:.2f}")
+                    self.close_table.setItem(row, 5, expense_item)
+                    
+                    # Total (non-editable)
+                    total = float(row_data[7]) if row_data[7] is not None else 0.0
+                    total_item = QtWidgets.QTableWidgetItem(f"${total:.2f}")
+                    total_item.setFlags(total_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.close_table.setItem(row, 6, total_item)
+                    
+                    # Comments (non-editable)
+                    comment_item = QtWidgets.QTableWidgetItem(row_data[8] or "")
+                    comment_item.setFlags(comment_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.close_table.setItem(row, 7, comment_item)
+                    
+                    # Add Edit button
+                    actions_widget = QtWidgets.QWidget()
+                    actions_layout = QtWidgets.QHBoxLayout(actions_widget)
+                    actions_layout.setContentsMargins(5, 2, 5, 2)
+                    actions_layout.setSpacing(8)
+                    
+                    edit_btn = QtWidgets.QPushButton("Save")
+                    edit_btn.setMinimumSize(85, 32)
+                    edit_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #3498db;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 6px;
+                            font-size: 13px;
+                            font-weight: bold;
+                            min-width: 80px;
+                        }
+                        QPushButton:hover {
+                            background-color: #2980b9;
+                        }
+                        QPushButton:pressed {
+                            background-color: #1c6ea4;
+                        }
+                    """)
+                    edit_btn.clicked.connect(lambda checked, r=row: self.save_close_changes(r))
+                    actions_layout.addWidget(edit_btn)
+                    
+                    self.close_table.setCellWidget(row, 8, actions_widget)
             
             # Resize columns to fit content
             self.close_table.resizeColumnsToContents()
-            
+
         except Exception as e:
             print(f"Error loading close history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load close history: {e}")
+
+    def save_close_changes(self, row):
+        """Save changes made to the close record."""
+        try:
+            close_data = self.close_table.item(row, 0).data(QtCore.Qt.UserRole)
+            if not close_data:
+                raise ValueError("Close data not found")
+            
+            # Get and validate the values
+            try:
+                credit = float(self.close_table.item(row, 3).text().replace('$', ''))
+                cash = float(self.close_table.item(row, 4).text().replace('$', ''))
+                expense = float(self.close_table.item(row, 5).text().replace('$', ''))
+                
+                if credit < 0 or cash < 0 or expense < 0:
+                    raise ValueError("Values cannot be negative")
+                
+            except ValueError as e:
+                raise ValueError("Invalid amount format. Please enter valid numbers.")
+            
+            # Update the close record
+            if close_data['close_id'] > 0:
+                # Update existing record
+                query = """
+                    UPDATE employee_close 
+                    SET credit = %s,
+                        cash_in_envelope = %s,
+                        expense = %s
+                    WHERE close_id = %s
+                """
+                data = (credit, cash, expense, close_data['close_id'])
+            else:
+                # Insert new record
+                query = """
+                    UPDATE employee_close 
+                    SET credit = %s,
+                        cash_in_envelope = %s,
+                        expense = %s
+                    WHERE employee_id = %s AND timestamp = %s
+                """
+                data = (credit, cash, expense, close_data['employee_id'], close_data['timestamp'])
+            
+            success = connect(query, data)
+            
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Close record updated successfully")
+                self.load_close_history()  # Refresh the table
+            else:
+                raise Exception("Failed to update close record")
+                
+        except Exception as e:
+            print(f"Error saving close changes: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to save changes: {e}")
+            self.load_close_history()  # Revert changes
 
     def _create_manage_users_page(self):
         """Create the user management page with three tabs."""

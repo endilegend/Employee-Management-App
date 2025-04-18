@@ -700,16 +700,26 @@ class Ui_Dialog(object):
             print("Error: Invalid input values")
             return
 
-        # Insert the close register record
         try:
-            query = """
+            # First, delete any existing record for this store on the current date
+            delete_query = """
+                DELETE FROM employee_close 
+                WHERE store_name = %s 
+                AND DATE(timestamp) = CURDATE()
+            """
+            delete_data = (store_name,)
+            print(f"Deleting existing close record. Query: {delete_query}, Data: {delete_data}")
+            connect(delete_query, delete_data)
+            
+            # Then insert the new record
+            insert_query = """
                 INSERT INTO employee_close 
                 (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
-            data = (first_name, last_name, store_name, credit, cash_in_envelope, expense, comments, self.employee_id)
-            print(f"Inserting close register record. Query: {query}, Data: {data}")
-            success = connect(query, data)
+            insert_data = (first_name, last_name, store_name, credit, cash_in_envelope, expense, comments, self.employee_id)
+            print(f"Inserting new close record. Query: {insert_query}, Data: {insert_data}")
+            success = connect(insert_query, insert_data)
             print(f"Close register insert result: {success}")
 
             if success:
