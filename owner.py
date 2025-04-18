@@ -2235,7 +2235,7 @@ class Ui_OwnerDialog(object):
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load expenses history: {e}")
 
     def _create_merchandise_history_page(self):
-        """Create the merchandise history page with comprehensive view."""
+        """Create the merchandise history page with editable table."""
         page = QtWidgets.QWidget()
         page.setStyleSheet("""
             QWidget {
@@ -2290,7 +2290,6 @@ class Ui_OwnerDialog(object):
 
         # Store selector
         self.merchandise_store_combo = QtWidgets.QComboBox()
-        self.merchandise_store_combo.setFixedWidth(250)
         self.merchandise_store_combo.setStyleSheet("""
             QComboBox {
                 padding: 8px;
@@ -2298,16 +2297,13 @@ class Ui_OwnerDialog(object):
                 border-radius: 6px;
                 font-size: 14px;
                 background-color: #f8f9fa;
+                min-width: 200px;
             }
-            QComboBox:hover {
+            QComboBox:focus {
+                border-color: #3498db;
                 background-color: white;
             }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
         """)
-        self.populate_merchandise_stores()
         controls_layout.addWidget(self.merchandise_store_combo)
 
         # Week navigation
@@ -2398,13 +2394,32 @@ class Ui_OwnerDialog(object):
         """)
         controls_layout.addWidget(self.merchandise_refresh_btn)
 
+        # Submit changes button
+        self.merchandise_submit_btn = QtWidgets.QPushButton("Submit Changes")
+        self.merchandise_submit_btn.setFixedHeight(40)
+        self.merchandise_submit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.merchandise_submit_btn)
+
         main_layout.addWidget(controls_container)
 
         # Merchandise table
         self.merchandise_table = QtWidgets.QTableWidget()
-        self.merchandise_table.setColumnCount(6)
+        self.merchandise_table.setColumnCount(7)  # Added merchandise_id column
         self.merchandise_table.setHorizontalHeaderLabels([
-            "Date", "Type", "Quantity", "Unit Price", "Total", "Employee"
+            "ID", "Date", "Type", "Quantity", "Unit Price", "Total", "Employee"
         ])
         self.merchandise_table.setStyleSheet("""
             QTableWidget {
@@ -2431,23 +2446,26 @@ class Ui_OwnerDialog(object):
             }
         """)
         self.merchandise_table.setAlternatingRowColors(True)
-        self.merchandise_table.horizontalHeader().setStretchLastSection(True)
+        self.merchandise_table.setEditTriggers(QtWidgets.QTableWidget.DoubleClicked | QtWidgets.QTableWidget.EditKeyPressed)
+        self.merchandise_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         main_layout.addWidget(self.merchandise_table)
 
-        # Total merchandise label
+        # Total value label
         self.merchandise_total_label = QtWidgets.QLabel()
         self.merchandise_total_label.setStyleSheet("""
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c3e50;
-            padding: 10px;
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 10px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+            }
         """)
-        self.merchandise_total_label.setAlignment(QtCore.Qt.AlignRight)
         main_layout.addWidget(self.merchandise_total_label)
 
         # Initialize current week
         self.merchandise_current_week_start = self.get_week_start_date()
-        self.update_merchandise_week_label()
         
         # Connect signals
         self.merchandise_store_combo.currentIndexChanged.connect(self.load_merchandise_history)
@@ -2455,6 +2473,8 @@ class Ui_OwnerDialog(object):
         self.merchandise_next_week_btn.clicked.connect(self.merchandise_next_week)
         self.merchandise_calendar_btn.clicked.connect(self.merchandise_show_calendar)
         self.merchandise_refresh_btn.clicked.connect(self.load_merchandise_history)
+        self.merchandise_submit_btn.clicked.connect(self.submit_merchandise_changes)
+        self.merchandise_table.cellChanged.connect(self.calculate_merchandise_total)
 
         # Add shadow effect to the page
         shadow = QtWidgets.QGraphicsDropShadowEffect()
@@ -2463,19 +2483,28 @@ class Ui_OwnerDialog(object):
         shadow.setOffset(0, 0)
         page.setGraphicsEffect(shadow)
 
+        # Initialize the page
+        self.populate_merchandise_stores()
+        self.update_merchandise_week_label()
+
         self.stackedWidget.addWidget(page)
         return page
 
     def populate_merchandise_stores(self):
         """Populate the merchandise store combo box with store names and IDs."""
         try:
+            print("Attempting to populate merchandise stores...")
             query = "SELECT store_id, store_name FROM Store"
             results = connect(query, None)
             
             if results:
+                print(f"Found {len(results)} stores")
                 self.merchandise_store_combo.clear()
                 for store in results:
+                    print(f"Adding store: {store[1]} (ID: {store[0]})")
                     self.merchandise_store_combo.addItem(store[1], store[0])  # Store name and ID
+            else:
+                print("No stores found in database")
         except Exception as e:
             print(f"Error populating merchandise stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
@@ -2526,19 +2555,22 @@ class Ui_OwnerDialog(object):
         """Load the merchandise history for the selected store and week."""
         store_id = self.merchandise_store_combo.currentData()
         if not store_id:
+            print("No store selected")
             return
 
         try:
+            print(f"Loading merchandise history for store {store_id}")
             week_end = self.merchandise_current_week_start.addDays(6)
             
             query = """
                 SELECT 
+                    m.merchandise_id,
                     m.merchandise_date,
                     m.merchandise_type,
                     m.quantity,
                     m.unitPrice,
-                    emp.firstName,
-                    emp.lastName
+                    (m.quantity * m.unitPrice) as total,
+                    CONCAT(emp.firstName, ' ', emp.lastName) as employee_name
                 FROM merchandise m
                 JOIN employee emp ON m.employee_id = emp.employee_id
                 WHERE m.store_id = %s 
@@ -2550,56 +2582,126 @@ class Ui_OwnerDialog(object):
                 self.merchandise_current_week_start.toPyDate(),
                 week_end.toPyDate()
             )
-            
+            print(f"Executing query with data: {data}")
             results = connect(query, data)
-            
-            # Clear existing table data
-            self.merchandise_table.setRowCount(0)
-            
-            total_value = 0.0
-            
+
             if results:
-                for row_data in results:
-                    row = self.merchandise_table.rowCount()
-                    self.merchandise_table.insertRow(row)
+                print(f"Found {len(results)} merchandise records")
+                # Disconnect the cellChanged signal temporarily
+                self.merchandise_table.cellChanged.disconnect()
+                
+                self.merchandise_table.setRowCount(len(results))
+                for row, record in enumerate(results):
+                    # ID (hidden)
+                    id_item = QtWidgets.QTableWidgetItem(str(record[0]))
+                    id_item.setFlags(id_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.merchandise_table.setItem(row, 0, id_item)
                     
-                    # Format date
-                    date = row_data[0].strftime("%Y-%m-%d")
+                    # Date
+                    date_item = QtWidgets.QTableWidgetItem(str(record[1]))
+                    date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.merchandise_table.setItem(row, 1, date_item)
                     
-                    # Calculate total for this item
-                    quantity = int(row_data[2])
-                    unit_price = float(row_data[3])
-                    item_total = quantity * unit_price
-                    total_value += item_total
+                    # Type
+                    type_item = QtWidgets.QTableWidgetItem(record[2])
+                    self.merchandise_table.setItem(row, 2, type_item)
                     
-                    # Format amounts
-                    unit_price_str = f"${unit_price:.2f}"
-                    item_total_str = f"${item_total:.2f}"
+                    # Quantity
+                    quantity_item = QtWidgets.QTableWidgetItem(str(record[3]))
+                    self.merchandise_table.setItem(row, 3, quantity_item)
                     
-                    # Format employee name
-                    employee_name = f"{row_data[4]} {row_data[5]}"
+                    # Unit Price
+                    price_item = QtWidgets.QTableWidgetItem(f"${record[4]:.2f}")
+                    self.merchandise_table.setItem(row, 4, price_item)
                     
-                    # Add items to table
-                    self.merchandise_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
-                    self.merchandise_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
-                    self.merchandise_table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(quantity)))
-                    self.merchandise_table.setItem(row, 3, QtWidgets.QTableWidgetItem(unit_price_str))
-                    self.merchandise_table.setItem(row, 4, QtWidgets.QTableWidgetItem(item_total_str))
-                    self.merchandise_table.setItem(row, 5, QtWidgets.QTableWidgetItem(employee_name))
+                    # Total
+                    total_item = QtWidgets.QTableWidgetItem(f"${record[5]:.2f}")
+                    total_item.setFlags(total_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.merchandise_table.setItem(row, 5, total_item)
                     
-                    # Center align all items
-                    for col in range(6):
-                        self.merchandise_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
-            
-            # Update total label
-            self.merchandise_total_label.setText(f"Total Value: ${total_value:.2f}")
-            
-            # Resize columns to fit content
-            self.merchandise_table.resizeColumnsToContents()
-            
+                    # Employee
+                    employee_item = QtWidgets.QTableWidgetItem(record[6])
+                    employee_item.setFlags(employee_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.merchandise_table.setItem(row, 6, employee_item)
+
+                # Hide the ID column
+                self.merchandise_table.setColumnHidden(0, True)
+                
+                # Reconnect the cellChanged signal
+                self.merchandise_table.cellChanged.connect(self.calculate_merchandise_total)
+                
+                # Calculate and display total
+                self.calculate_merchandise_total()
+            else:
+                print("No merchandise records found")
+                self.merchandise_table.setRowCount(0)
+                self.merchandise_total_label.setText("Total Value: $0.00")
+
         except Exception as e:
             print(f"Error loading merchandise history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load merchandise history: {e}")
+
+    def calculate_merchandise_total(self, row=None, column=None):
+        """Calculate and display the total value of merchandise."""
+        try:
+            # Skip calculation if the signal was triggered by a non-editable column
+            if column is not None and column not in [2, 3, 4]:  # Only Type, Quantity, and Unit Price are editable
+                return
+
+            total = 0.0
+            for row in range(self.merchandise_table.rowCount()):
+                quantity_item = self.merchandise_table.item(row, 3)
+                price_item = self.merchandise_table.item(row, 4)
+                
+                if quantity_item is None or price_item is None:
+                    continue
+                    
+                try:
+                    quantity = float(quantity_item.text())
+                    price_text = price_item.text().replace('$', '')
+                    price = float(price_text)
+                    row_total = quantity * price
+                    total += row_total
+                    
+                    # Update the total cell
+                    total_item = QtWidgets.QTableWidgetItem(f"${row_total:.2f}")
+                    total_item.setFlags(total_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.merchandise_table.setItem(row, 5, total_item)
+                except ValueError:
+                    continue
+
+            self.merchandise_total_label.setText(f"Total Value: ${total:.2f}")
+        except Exception as e:
+            print(f"Error calculating total: {e}")
+
+    def submit_merchandise_changes(self):
+        """Submit changes made to merchandise records."""
+        try:
+            for row in range(self.merchandise_table.rowCount()):
+                merchandise_id = int(self.merchandise_table.item(row, 0).text())
+                merchandise_type = self.merchandise_table.item(row, 2).text()
+                quantity = int(self.merchandise_table.item(row, 3).text())
+                price_text = self.merchandise_table.item(row, 4).text().replace('$', '')
+                unit_price = float(price_text)
+
+                query = """
+                    UPDATE merchandise 
+                    SET merchandise_type = %s,
+                        quantity = %s,
+                        unitPrice = %s
+                    WHERE merchandise_id = %s
+                """
+                data = (merchandise_type, quantity, unit_price, merchandise_id)
+                success = connect(query, data)
+
+                if not success:
+                    raise Exception(f"Failed to update merchandise record {merchandise_id}")
+
+            QtWidgets.QMessageBox.information(None, "Success", "Changes saved successfully")
+            self.load_merchandise_history()  # Refresh the table
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to save changes: {e}")
 
     def _create_close_history_page(self):
         """Create the close history page with comprehensive view."""
