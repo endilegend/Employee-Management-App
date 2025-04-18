@@ -5,7 +5,7 @@ USE employee_db;
 CREATE TABLE IF NOT EXISTS Store (
                                      store_id INT AUTO_INCREMENT PRIMARY KEY,
                                      store_name VARCHAR(255),
-                                     location VARCHAR(255)
+                                     location VARCHAR(255) 
 );
 
 CREATE TABLE IF NOT EXISTS employee (
@@ -19,15 +19,14 @@ CREATE TABLE IF NOT EXISTS employee (
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
-                                        expense_id INT PRIMARY KEY AUTO_INCREMENT,
-                                        expense_type VARCHAR(150),
-                                        expense_date DATE,
-                                        employee_id INT,
-                                        expense_value DECIMAL(10,2),
-                                        store_id INT,
-                                        FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
-                                        FOREIGN KEY (store_id) REFERENCES Store(store_id)
-
+    expense_id INT PRIMARY KEY AUTO_INCREMENT,
+    expense_type VARCHAR(150),
+    expense_date DATE,
+    employee_id INT,
+    expense_value DECIMAL(10,2),
+    store_id INT,
+    FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+    FOREIGN KEY (store_id) REFERENCES Store(store_id)
 );
 
 CREATE TABLE IF NOT EXISTS merchandise (
@@ -44,19 +43,20 @@ CREATE TABLE IF NOT EXISTS merchandise (
 );
 
 CREATE TABLE IF NOT EXISTS employee_close (
-                                              close_id INT AUTO_INCREMENT PRIMARY KEY,
-                                              firstName VARCHAR(15),
-                                              lastName VARCHAR(15),
-                                              store_name VARCHAR(25),
-                                              credit DECIMAL(10, 2),
-                                              cash_in_envelope DECIMAL(10, 2),
-                                              expense DECIMAL(10, 2),
-                                              comments TEXT,
-                                              employee_id INT,
-                                              timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                              FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
-                                              UNIQUE KEY store_date_unique (store_name, DATE(timestamp))
+    close_id INT AUTO_INCREMENT PRIMARY KEY,
+    firstName VARCHAR(15),
+    lastName VARCHAR(15),
+    store_name VARCHAR(25),
+    credit DECIMAL(10, 2),
+    cash_in_envelope DECIMAL(10, 2),
+    expense DECIMAL(10, 2),
+    comments TEXT,
+    employee_id INT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+    UNIQUE KEY store_date_unique (store_name, timestamp)
 );
+
 
 CREATE TABLE IF NOT EXISTS clockTable (
                                           clock_id INT AUTO_INCREMENT PRIMARY KEY,
