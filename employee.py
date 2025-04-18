@@ -3,9 +3,17 @@ from PyQt5.QtWidgets import QMessageBox  # Import QMessageBox
 from sqlConnector import connect  # Import the database connection function
 from datetime import datetime, timedelta  # Import datetime and timedelta
 import pytz  # For handling time zones
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5.QtCore import QUrl
+import os  # Import os for file path validation
 
 
 class Ui_Dialog(object):
+    def __init__(self):
+        # Initialize the media player
+        self.media_player = QMediaPlayer()
+
     def setupUi(self, Dialog, stacked_widget=None, employee_id=None):
         self.stacked_widget = stacked_widget  # Reference to QStackedWidget for navigation
         self.employee_id = employee_id  # Set the employee ID from the login page
@@ -335,6 +343,20 @@ class Ui_Dialog(object):
         layout.addStretch()
         self.stackedWidget.addWidget(self.btnClockIn)
 
+    def play_success_audio(self):
+        """Play the success audio."""
+        try:
+            audio_path = os.path.abspath("chaching.mp4")  # Get absolute path
+            if not os.path.exists(audio_path):
+                print(f"Audio file not found: {audio_path}")
+                return
+            audio_url = QUrl.fromLocalFile(audio_path)
+            self.media_player.setMedia(QMediaContent(audio_url))
+            self.media_player.play()
+            print(f"Playing audio: {audio_path}")
+        except Exception as e:
+            print(f"Error playing audio: {e}")
+
     def clock_in(self):
         """Handle the clock-in operation."""
         print(f"Attempting to clock in employee ID: {self.employee_id}")
@@ -397,6 +419,7 @@ class Ui_Dialog(object):
             print(f"Clock-in insert result: {success}")
 
             if success:
+                self.play_success_audio()  # Play success audio immediately
                 QMessageBox.information(None, "Clock-In Successful", "You have successfully clocked in.")
                 self.RegInBalanceInput.clear()  # Clear the input field
                 print("Clock-in successful")
@@ -535,6 +558,7 @@ class Ui_Dialog(object):
             print(f"Clock-out update result: {success}")
 
             if success:
+                self.play_success_audio()  # Play success audio immediately
                 QMessageBox.information(None, "Clock-Out Successful", "You have successfully clocked out.")
                 self.RegOutBalanceInput.clear()  # Clear the input field
                 print("Clock-out successful")
