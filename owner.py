@@ -1922,7 +1922,6 @@ class Ui_OwnerDialog(object):
 
         # Store selector
         self.expenses_store_combo = QtWidgets.QComboBox()
-        self.expenses_store_combo.setFixedWidth(250)
         self.expenses_store_combo.setStyleSheet("""
             QComboBox {
                 padding: 8px;
@@ -1930,16 +1929,13 @@ class Ui_OwnerDialog(object):
                 border-radius: 6px;
                 font-size: 14px;
                 background-color: #f8f9fa;
+                min-width: 200px;
             }
-            QComboBox:hover {
+            QComboBox:focus {
+                border-color: #3498db;
                 background-color: white;
             }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
         """)
-        self.populate_expenses_stores()  # Populate stores immediately
         controls_layout.addWidget(self.expenses_store_combo)
 
         # Week navigation
@@ -2034,9 +2030,9 @@ class Ui_OwnerDialog(object):
 
         # Expenses table
         self.expenses_table = QtWidgets.QTableWidget()
-        self.expenses_table.setColumnCount(5)
+        self.expenses_table.setColumnCount(6)
         self.expenses_table.setHorizontalHeaderLabels([
-            "Date", "Type", "Amount", "Employee", "Store"
+            "Date", "Type", "Amount", "Employee", "Store", "Actions"
         ])
         self.expenses_table.setStyleSheet("""
             QTableWidget {
@@ -2063,23 +2059,25 @@ class Ui_OwnerDialog(object):
             }
         """)
         self.expenses_table.setAlternatingRowColors(True)
-        self.expenses_table.horizontalHeader().setStretchLastSection(True)
+        self.expenses_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         main_layout.addWidget(self.expenses_table)
 
         # Total expenses label
         self.expenses_total_label = QtWidgets.QLabel()
         self.expenses_total_label.setStyleSheet("""
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c3e50;
-            padding: 10px;
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 10px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+            }
         """)
-        self.expenses_total_label.setAlignment(QtCore.Qt.AlignRight)
         main_layout.addWidget(self.expenses_total_label)
 
         # Initialize current week
         self.expenses_current_week_start = self.get_week_start_date()
-        self.update_expenses_week_label()
         
         # Connect signals
         self.expenses_store_combo.currentIndexChanged.connect(self.load_expenses_history)
@@ -2095,84 +2093,50 @@ class Ui_OwnerDialog(object):
         shadow.setOffset(0, 0)
         page.setGraphicsEffect(shadow)
 
+        # Initialize the page
+        self.populate_expenses_stores()
+        self.update_expenses_week_label()
+
         self.stackedWidget.addWidget(page)
         return page
 
     def populate_expenses_stores(self):
         """Populate the expenses store combo box with store names and IDs."""
         try:
+            print("Attempting to populate expenses stores...")
             query = "SELECT store_id, store_name FROM Store"
             results = connect(query, None)
             
             if results:
+                print(f"Found {len(results)} stores")
                 self.expenses_store_combo.clear()
                 for store in results:
+                    print(f"Adding store: {store[1]} (ID: {store[0]})")
                     self.expenses_store_combo.addItem(store[1], store[0])  # Store name and ID
-                # Set the first store as default
-                if results:
-                    self.expenses_store_combo.setCurrentIndex(0)
+            else:
+                print("No stores found in database")
         except Exception as e:
             print(f"Error populating expenses stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
-
-    def update_expenses_week_label(self):
-        """Update the expenses week label with the current week range."""
-        week_end = self.expenses_current_week_start.addDays(6)
-        self.expenses_week_label.setText(
-            f"{self.expenses_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
-        )
-        self.load_expenses_history()
-
-    def expenses_previous_week(self):
-        """Navigate to the previous week in expenses history."""
-        self.expenses_current_week_start = self.expenses_current_week_start.addDays(-7)
-        self.update_expenses_week_label()
-
-    def expenses_next_week(self):
-        """Navigate to the next week in expenses history."""
-        self.expenses_current_week_start = self.expenses_current_week_start.addDays(7)
-        self.update_expenses_week_label()
-
-    def expenses_show_calendar(self):
-        """Show calendar dialog to select a date for expenses history."""
-        calendar = QtWidgets.QCalendarWidget()
-        calendar.setSelectedDate(self.expenses_current_week_start)
-        
-        dialog = QtWidgets.QDialog()
-        dialog.setWindowTitle("Select Date")
-        dialog.setFixedSize(400, 300)
-        
-        layout = QtWidgets.QVBoxLayout(dialog)
-        layout.addWidget(calendar)
-        
-        buttons = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        
-        if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            selected_date = calendar.selectedDate()
-            self.expenses_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
-            self.update_expenses_week_label()
 
     def load_expenses_history(self):
         """Load the expenses history for the selected store and week."""
         store_id = self.expenses_store_combo.currentData()
         if not store_id:
+            print("No store selected")
             return
 
         try:
+            print(f"Loading expenses history for store {store_id}")
             week_end = self.expenses_current_week_start.addDays(6)
             
             query = """
                 SELECT 
+                    e.expense_id,
                     e.expense_date,
                     e.expense_type,
                     e.expense_value,
-                    emp.firstName,
-                    emp.lastName,
+                    CONCAT(emp.firstName, ' ', emp.lastName) as employee_name,
                     s.store_name
                 FROM expenses e
                 JOIN employee emp ON e.employee_id = emp.employee_id
@@ -2186,53 +2150,174 @@ class Ui_OwnerDialog(object):
                 self.expenses_current_week_start.toPyDate(),
                 week_end.toPyDate()
             )
-            
-            print(f"Loading expenses history with query: {query}")
-            print(f"Data: {data}")
-            
+            print(f"Executing query with data: {data}")
             results = connect(query, data)
-            print(f"Query results: {results}")
-            
-            # Clear existing table data
-            self.expenses_table.setRowCount(0)
-            
-            total_expenses = 0.0
-            
+
             if results:
-                for row_data in results:
-                    row = self.expenses_table.rowCount()
-                    self.expenses_table.insertRow(row)
+                print(f"Found {len(results)} expense records")
+                self.expenses_table.setRowCount(len(results))
+                total_expenses = 0.0
+                
+                for row, record in enumerate(results):
+                    # Date
+                    date_item = QtWidgets.QTableWidgetItem(str(record[1]))
+                    date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    date_item.setData(QtCore.Qt.UserRole, record[0])  # Store expense_id in UserRole
+                    self.expenses_table.setItem(row, 0, date_item)
                     
-                    # Format date
-                    date = row_data[0].strftime("%Y-%m-%d")
+                    # Type
+                    type_item = QtWidgets.QTableWidgetItem(record[2])
+                    self.expenses_table.setItem(row, 1, type_item)
                     
-                    # Format amount
-                    amount = f"${float(row_data[2]):.2f}"
-                    total_expenses += float(row_data[2])
+                    # Amount
+                    amount = float(record[3])
+                    total_expenses += amount
+                    amount_item = QtWidgets.QTableWidgetItem(f"${amount:.2f}")
+                    self.expenses_table.setItem(row, 2, amount_item)
                     
-                    # Format employee name
-                    employee_name = f"{row_data[3]} {row_data[4]}"
+                    # Employee
+                    employee_item = QtWidgets.QTableWidgetItem(record[4])
+                    employee_item.setFlags(employee_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.expenses_table.setItem(row, 3, employee_item)
                     
-                    # Add items to table
-                    self.expenses_table.setItem(row, 0, QtWidgets.QTableWidgetItem(date))
-                    self.expenses_table.setItem(row, 1, QtWidgets.QTableWidgetItem(row_data[1]))
-                    self.expenses_table.setItem(row, 2, QtWidgets.QTableWidgetItem(amount))
-                    self.expenses_table.setItem(row, 3, QtWidgets.QTableWidgetItem(employee_name))
-                    self.expenses_table.setItem(row, 4, QtWidgets.QTableWidgetItem(row_data[5]))
+                    # Store
+                    store_item = QtWidgets.QTableWidgetItem(record[5])
+                    store_item.setFlags(store_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    self.expenses_table.setItem(row, 4, store_item)
                     
-                    # Center align all items
-                    for col in range(5):
-                        self.expenses_table.item(row, col).setTextAlignment(QtCore.Qt.AlignCenter)
-            
-            # Update total label
-            self.expenses_total_label.setText(f"Total Expenses: ${total_expenses:.2f}")
-            
-            # Resize columns to fit content
-            self.expenses_table.resizeColumnsToContents()
-            
+                    # Actions
+                    actions_widget = QtWidgets.QWidget()
+                    actions_layout = QtWidgets.QHBoxLayout(actions_widget)
+                    actions_layout.setContentsMargins(5, 2, 5, 2)
+                    actions_layout.setSpacing(8)
+                    
+                    edit_btn = QtWidgets.QPushButton("Edit")
+                    edit_btn.setMinimumSize(85, 32)
+                    edit_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #3498db;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 6px;
+                            font-size: 13px;
+                            font-weight: bold;
+                            min-width: 80px;
+                        }
+                        QPushButton:hover {
+                            background-color: #2980b9;
+                        }
+                        QPushButton:pressed {
+                            background-color: #1c6ea4;
+                        }
+                    """)
+                    edit_btn.clicked.connect(lambda checked, r=row: self.edit_expense(r))
+                    
+                    delete_btn = QtWidgets.QPushButton("Delete")
+                    delete_btn.setMinimumSize(85, 32)
+                    delete_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #e74c3c;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 6px;
+                            font-size: 13px;
+                            font-weight: bold;
+                            min-width: 80px;
+                        }
+                        QPushButton:hover {
+                            background-color: #c0392b;
+                        }
+                        QPushButton:pressed {
+                            background-color: #a93226;
+                        }
+                    """)
+                    delete_btn.clicked.connect(lambda checked, r=row: self.delete_expense(r))
+                    
+                    actions_layout.addWidget(edit_btn)
+                    actions_layout.addWidget(delete_btn)
+                    
+                    self.expenses_table.setCellWidget(row, 5, actions_widget)
+
+                self.expenses_total_label.setText(f"Total Expenses: ${total_expenses:.2f}")
+            else:
+                print("No expense records found")
+                self.expenses_table.setRowCount(0)
+                self.expenses_total_label.setText("Total Expenses: $0.00")
+
         except Exception as e:
             print(f"Error loading expenses history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load expenses history: {e}")
+
+    def edit_expense(self, row):
+        """Edit an expense record."""
+        try:
+            expense_id = self.expenses_table.item(row, 0).data(QtCore.Qt.UserRole)
+            if expense_id is None:
+                raise ValueError("Expense ID not found")
+            
+            # Get current values
+            expense_type = self.expenses_table.item(row, 1).text()
+            amount_text = self.expenses_table.item(row, 2).text().replace('$', '')
+            
+            # Validate amount
+            try:
+                amount = float(amount_text)
+                if amount <= 0:
+                    raise ValueError("Amount must be greater than 0")
+            except ValueError:
+                raise ValueError("Invalid amount format")
+            
+            # Update the expense
+            query = """
+                UPDATE expenses 
+                SET expense_type = %s,
+                    expense_value = %s
+                WHERE expense_id = %s
+            """
+            data = (expense_type, amount, expense_id)
+            success = connect(query, data)
+            
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Expense updated successfully")
+                self.load_expenses_history()  # Refresh the table
+            else:
+                raise Exception("Failed to update expense")
+                
+        except Exception as e:
+            print(f"Error editing expense: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to edit expense: {e}")
+            # Revert changes in the table
+            self.load_expenses_history()
+
+    def delete_expense(self, row):
+        """Delete an expense record."""
+        try:
+            expense_id = self.expenses_table.item(row, 0).data(QtCore.Qt.UserRole)
+            if expense_id is None:
+                raise ValueError("Expense ID not found")
+                
+            reply = QtWidgets.QMessageBox.question(
+                None,
+                "Confirm Delete",
+                "Are you sure you want to delete this expense?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+            
+            if reply == QtWidgets.QMessageBox.Yes:
+                query = "DELETE FROM expenses WHERE expense_id = %s"
+                success = connect(query, (expense_id,))
+                
+                if success:
+                    QtWidgets.QMessageBox.information(None, "Success", "Expense deleted successfully")
+                    self.load_expenses_history()
+                else:
+                    raise Exception("Failed to delete expense")
+        except Exception as e:
+            print(f"Error deleting expense: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to delete expense: {e}")
 
     def _create_merchandise_history_page(self):
         """Create the merchandise history page with editable table."""
@@ -3662,6 +3747,48 @@ class Ui_OwnerDialog(object):
     def _retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Owner Dashboard"))
+
+    def update_expenses_week_label(self):
+        """Update the expenses week label with the current week range."""
+        week_end = self.expenses_current_week_start.addDays(6)
+        self.expenses_week_label.setText(
+            f"{self.expenses_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_expenses_history()
+
+    def expenses_previous_week(self):
+        """Navigate to the previous week in expenses history."""
+        self.expenses_current_week_start = self.expenses_current_week_start.addDays(-7)
+        self.update_expenses_week_label()
+
+    def expenses_next_week(self):
+        """Navigate to the next week in expenses history."""
+        self.expenses_current_week_start = self.expenses_current_week_start.addDays(7)
+        self.update_expenses_week_label()
+
+    def expenses_show_calendar(self):
+        """Show calendar dialog to select a date for expenses history."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.expenses_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.expenses_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_expenses_week_label()
 
 
 # -----------------------------------------------------------------------------
