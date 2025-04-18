@@ -1,174 +1,188 @@
 import sys
-import subprocess
-from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, QGraphicsDropShadowEffect, QSizePolicy, QStackedWidget)
-from PyQt5.QtGui import QPalette, QBrush, QPixmap
-from PyQt5.QtCore import Qt
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtCore import QUrl
 import os
+import subprocess
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QPushButton, QLabel, QLineEdit,
+    QGridLayout, QMessageBox, QGraphicsDropShadowEffect,
+    QSizePolicy, QStackedWidget
+)
+from PyQt5.QtGui    import QPalette, QBrush, QPixmap
+from PyQt5.QtCore   import Qt, QUrl
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+
 from sqlConnector import connect
-from employee import Ui_Dialog as EmployeePage  # Import Employee page
-from owner import Ui_OwnerDialog as OwnerPage  # Import Owner page
-from manager import Ui_Dialog as ManagerPage    # Import Manager page
+
+# page modules
+from employee import Ui_Dialog        as EmployeePage
+from owner    import Ui_OwnerDialog   as OwnerPage
+from manager  import Ui_Dialog        as ManagerPage
+from lebron   import Ui_LebronDialog  as LebronPage   # special page
+
 
 class LoginForm(QWidget):
-	def __init__(self, stacked_widget):
-		super().__init__()
-		self.stacked_widget = stacked_widget  # Reference to the QStackedWidget
-		self.media_player = QMediaPlayer()  # Initialize the media player
-		self.setWindowTitle('Login Form')
-		self.resize(500, 120)
-		self.setMinimumSize(400, 120)  # Set minimum window size
+    def __init__(self, stacked_widget: QStackedWidget):
+        super().__init__()
+        self.stacked_widget = stacked_widget          # reference to the global QStackedWidget
+        self.media_player = QMediaPlayer()            # for error‑sound playback
 
-		# Set background image
-		self.setAutoFillBackground(True)
-		palette = self.palette()
-		palette.setBrush(QPalette.Window, QBrush(QPixmap("clwbeach.jpg")))
-		self.setPalette(palette)
+        # ---------- basic window ----------
+        self.setWindowTitle('Login Form')
+        self.resize(500, 120)
+        self.setMinimumSize(400, 120)
 
-		# Create a container for the white box with modern styling
-		container = QWidget(self)
-		container.setStyleSheet("""
-			background-color: white;
-			border-radius: 15px;
-			padding: 20px;
-		""")
-		# Set size policy to make container expand
-		container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # ---------- background image ----------
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setBrush(QPalette.Window, QBrush(QPixmap("clwbeach.jpg")))
+        self.setPalette(palette)
 
-		# Add shadow effect to the container
-		shadow = QGraphicsDropShadowEffect()
-		shadow.setBlurRadius(15)
-		shadow.setOffset(0, 0)
-		container.setGraphicsEffect(shadow)
+        # ---------- white rounded box ----------
+        container = QWidget(self)
+        container.setStyleSheet("""
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+        """)
+        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-		container_layout = QGridLayout(container)
-		container_layout.setContentsMargins(20, 20, 20, 20)  # Add margins for better spacing
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setOffset(0, 0)
+        container.setGraphicsEffect(shadow)
 
-		label_name = QLabel('<font size="4"> Username </font>')
-		self.lineEdit_username = QLineEdit()
-		self.lineEdit_username.setPlaceholderText('Enter username')
-		self.lineEdit_username.setStyleSheet("""
-			border: 1px solid #ccc;
-			border-radius: 10px;
-			padding: 8px;
-			font-size: 14px;
-		""")
-		container_layout.addWidget(label_name, 0, 0)
-		container_layout.addWidget(self.lineEdit_username, 0, 1)
+        # ---------- form layout ----------
+        container_layout = QGridLayout(container)
+        container_layout.setContentsMargins(20, 20, 20, 20)
 
-		label_password = QLabel('<font size="4"> Password </font>')
-		self.lineEdit_password = QLineEdit()
-		self.lineEdit_password.setPlaceholderText('Enter password')
-		self.lineEdit_password.setEchoMode(QLineEdit.Password)
-		self.lineEdit_password.setStyleSheet("""
-			border: 1px solid #ccc;
-			border-radius: 10px;
-			padding: 8px;
-			font-size: 14px;
-		""")
-		container_layout.addWidget(label_password, 1, 0)
-		container_layout.addWidget(self.lineEdit_password, 1, 1)
+        label_name = QLabel('<font size="4"> Username </font>')
+        self.lineEdit_username = QLineEdit()
+        self.lineEdit_username.setPlaceholderText('Enter username')
+        self.lineEdit_username.setStyleSheet(
+            "border: 1px solid #ccc; border-radius: 10px; padding: 8px; font-size: 14px;"
+        )
 
-		button_login = QPushButton('Login')
-		button_login.setStyleSheet("""
-			background-color: #007BFF;
-			color: white;
-			border: none;
-			border-radius: 10px;
-			padding: 10px 20px;
-			font-size: 14px;
-		""")
-		button_login.clicked.connect(self.check_password)
-		container_layout.addWidget(button_login, 2, 0, 1, 2, alignment=Qt.AlignCenter)
-		container_layout.setRowMinimumHeight(2, 75)
+        label_password = QLabel('<font size="4"> Password </font>')
+        self.lineEdit_password = QLineEdit()
+        self.lineEdit_password.setPlaceholderText('Enter password')
+        self.lineEdit_password.setEchoMode(QLineEdit.Password)
+        self.lineEdit_password.setStyleSheet(
+            "border: 1px solid #ccc; border-radius: 10px; padding: 8px; font-size: 14px;"
+        )
 
-		# Center the white box on the main layout
-		main_layout = QGridLayout(self)
-		main_layout.setContentsMargins(50, 50, 50, 50)  # Add margins for better spacing
-		main_layout.addWidget(container, 0, 0, 1, 1, alignment=Qt.AlignCenter)
-		main_layout.setRowStretch(0, 1)  # Make the row stretchable
-		main_layout.setColumnStretch(0, 1)  # Make the column stretchable
-		self.setLayout(main_layout)
+        button_login = QPushButton('Login')
+        button_login.setStyleSheet(
+            "background-color: #007BFF; color: white; border: none; "
+            "border-radius: 10px; padding: 10px 20px; font-size: 14px;"
+        )
+        button_login.clicked.connect(self.check_password)
 
-	def play_error_audio(self):
-		"""Play the error audio."""
-		try:
-			audio_path = os.path.abspath("wrong.mp4")  # Get absolute path
-			if not os.path.exists(audio_path):
-				print(f"Audio file not found: {audio_path}")
-				return
-			audio_url = QUrl.fromLocalFile(audio_path)
-			self.media_player.setMedia(QMediaContent(audio_url))
-			self.media_player.play()
-			print(f"Playing error audio: {audio_path}")
-		except Exception as e:
-			print(f"Error playing audio: {e}")
+        # add to layout
+        container_layout.addWidget(label_name,        0, 0)
+        container_layout.addWidget(self.lineEdit_username, 0, 1)
+        container_layout.addWidget(label_password,    1, 0)
+        container_layout.addWidget(self.lineEdit_password, 1, 1)
+        container_layout.addWidget(button_login,      2, 0, 1, 2, alignment=Qt.AlignCenter)
+        container_layout.setRowMinimumHeight(2, 75)
 
-	def check_password(self):
-		msg = QMessageBox()
+        # ---------- main layout (centering) ----------
+        main_layout = QGridLayout(self)
+        main_layout.setContentsMargins(50, 50, 50, 50)
+        main_layout.addWidget(container, 0, 0, alignment=Qt.AlignCenter)
+        main_layout.setRowStretch(0, 1)
+        main_layout.setColumnStretch(0, 1)
+        self.setLayout(main_layout)
 
-		# Query to check username and password
-		query = "SELECT * FROM employee WHERE userName = %s AND password = %s"
-		data = (self.lineEdit_username.text(), self.lineEdit_password.text())
+        # place to store employee_id after DB lookup
+        self.employee_id = None
 
-		# Execute the query using the connect function
-		results = connect(query, data)
+    # ------------------------------------------------------------------
+    # utilities
+    # ------------------------------------------------------------------
+    def play_error_audio(self):
+        """Plays wrong.mp4 when login fails."""
+        audio_path = os.path.abspath("wrong.mp4")
+        if os.path.exists(audio_path):
+            self.media_player.setMedia(QMediaContent(QUrl.fromLocalFile(audio_path)))
+            self.media_player.play()
 
-		if results and len(results) > 0:
-			# Debug: Print the query result to verify its structure
-			print(f"Query Result: {results}")
+    # ------------------------------------------------------------------
+    # login logic
+    # ------------------------------------------------------------------
+    def check_password(self):
+        """Validates credentials and routes to the proper page."""
+        # ----- 1) hard‑coded “lebron” backdoor -------------------------
+        if (self.lineEdit_username.text() == "lebron" and
+                self.lineEdit_password.text() == "123084"):
+            self.redirect_to_lebron()
+            return
 
-			# Extract the employee_id and role
-			self.employee_id = results[0][0]  # Assuming employee_id is the first column
-			role = results[0][5]  # Assuming 'role' is the 6th column (0-based index)
-			print(f"Login successful. Employee ID: {self.employee_id}, Role: {role}")  # Debug print
-			msg.setText('Login Successful')
-			msg.exec_()
+        # ----- 2) normal DB lookup ------------------------------------
+        query = "SELECT * FROM employee WHERE userName = %s AND password = %s"
+        data  = (self.lineEdit_username.text(), self.lineEdit_password.text())
+        results = connect(query, data)
 
-			# Redirect based on role
-			if role == 'owner':
-				self.redirect_to_owner()
-			elif role == 'manager':
-				self.redirect_to_manager()
-			elif role == 'employee':
-				self.redirect_to_employee(self.employee_id)
-		else:
-			self.play_error_audio()  # Play error audio before showing the error message
-			print("Invalid username or password.")  # Debug print
-			msg.setText('Invalid Username or Password')
-			msg.exec_()
+        if results:
+            # assuming columns: employee_id, firstName, lastName, userName, password, role, ...
+            self.employee_id = results[0][0]
+            role             = results[0][5]          # change index if schema differs
 
-	def redirect_to_employee(self, employee_id):
-		print("Redirecting to Employee Page...")  # Debug print
-		employee_page = QWidget()
-		employee_ui = EmployeePage()
-		employee_ui.setupUi(employee_page, self.stacked_widget, employee_id)  # Pass employee_id
-		self.stacked_widget.addWidget(employee_page)
-		self.stacked_widget.setCurrentWidget(employee_page)
+            QMessageBox.information(self, "Login", "Login Successful")
 
-	def redirect_to_owner(self):
-		print("Redirecting to Owner Page...")  # Debug print
-		owner_page = QWidget()
-		owner_ui = OwnerPage()
-		owner_ui.setupUi(owner_page, self.stacked_widget, self.employee_id)  # Pass both stacked_widget and employee_id
-		self.stacked_widget.addWidget(owner_page)
-		self.stacked_widget.setCurrentWidget(owner_page)
+            if role == 'owner':
+                self.redirect_to_owner()
+            elif role == 'manager':
+                self.redirect_to_manager()
+            elif role == 'employee':
+                self.redirect_to_employee()
+            else:
+                QMessageBox.warning(self, "Login Error", f"Unknown role: {role}")
+        else:
+            self.play_error_audio()
+            QMessageBox.warning(self, "Login Failed", "Invalid username or password.")
 
-	def redirect_to_manager(self):
-		print("Redirecting to Manager Page...")  # Debug print
-		manager_page = QWidget()
-		manager_ui = ManagerPage()
-		manager_ui.setupUi(manager_page)
-		self.stacked_widget.addWidget(manager_page)
-		self.stacked_widget.setCurrentWidget(manager_page)
+    # ------------------------------------------------------------------
+    # routing helpers
+    # ------------------------------------------------------------------
+    def redirect_to_employee(self):
+        page = QWidget()
+        ui   = EmployeePage()
+        ui.setupUi(page, self.stacked_widget, self.employee_id)  # pass employee_id
+        self.stacked_widget.addWidget(page)
+        self.stacked_widget.setCurrentWidget(page)
 
+    def redirect_to_owner(self):
+        page = QWidget()
+        ui   = OwnerPage()
+        ui.setupUi(page, self.stacked_widget, self.employee_id)  # pass employee_id
+        self.stacked_widget.addWidget(page)
+        self.stacked_widget.setCurrentWidget(page)
+
+    def redirect_to_manager(self):
+        page = QWidget()
+        ui   = ManagerPage()
+        ui.setupUi(page)                            # manager page needed no extras
+        self.stacked_widget.addWidget(page)
+        self.stacked_widget.setCurrentWidget(page)
+
+    def redirect_to_lebron(self):
+        """Opens the special Lebron video page."""
+        page = QWidget()
+        ui   = LebronPage()
+        ui.setupUi(page, self.stacked_widget)       # Lebron page only needs the stack
+        self.stacked_widget.addWidget(page)
+        self.stacked_widget.setCurrentWidget(page)
+
+
+# ----------------------------------------------------------------------
+# main entry‑point
+# ----------------------------------------------------------------------
 if __name__ == '__main__':
-	app = QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
-	stacked_widget = QStackedWidget()
-	form = LoginForm(stacked_widget)
-	stacked_widget.addWidget(form)
-	stacked_widget.show()
+    stacked_widget = QStackedWidget()
+    login_form = LoginForm(stacked_widget)
 
-	sys.exit(app.exec_())
+    stacked_widget.addWidget(login_form)  # index 0 = login page
+    stacked_widget.show()
+
+    sys.exit(app.exec_())
