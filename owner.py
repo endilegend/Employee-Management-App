@@ -2947,13 +2947,15 @@ class Ui_OwnerDialog(object):
 
         main_layout.addWidget(controls_container)
 
-        # Close history table
+        # Initialize the close table with all columns
         self.close_table = QtWidgets.QTableWidget()
-        self.close_table.setColumnCount(8)
+        self.close_table.setColumnCount(9)
         self.close_table.setHorizontalHeaderLabels([
             "Date", "Employee", "Store", "Credit", "Cash in Envelope", 
-            "Expenses", "Total", "Comments"
+            "Expense", "Total", "Comments", "Actions"
         ])
+        
+        # Set table style
         self.close_table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
@@ -3132,16 +3134,19 @@ class Ui_OwnerDialog(object):
                     # Credit (editable)
                     credit = float(row_data[4]) if row_data[4] is not None else 0.0
                     credit_item = QtWidgets.QTableWidgetItem(f"${credit:.2f}")
+                    credit_item.setFlags(credit_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
                     self.close_table.setItem(row, 3, credit_item)
                     
                     # Cash in envelope (editable)
                     cash = float(row_data[5]) if row_data[5] is not None else 0.0
                     cash_item = QtWidgets.QTableWidgetItem(f"${cash:.2f}")
+                    cash_item.setFlags(cash_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
                     self.close_table.setItem(row, 4, cash_item)
                     
                     # Expense (editable)
                     expense = float(row_data[6]) if row_data[6] is not None else 0.0
                     expense_item = QtWidgets.QTableWidgetItem(f"${expense:.2f}")
+                    expense_item.setFlags(expense_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
                     self.close_table.setItem(row, 5, expense_item)
                     
                     # Total (non-editable)
@@ -3185,6 +3190,14 @@ class Ui_OwnerDialog(object):
                     actions_layout.addWidget(edit_btn)
                     
                     self.close_table.setCellWidget(row, 8, actions_widget)
+
+                    # Make sure the table has enough columns for the Edit button
+                    if self.close_table.columnCount() < 9:
+                        self.close_table.setColumnCount(9)
+                        self.close_table.setHorizontalHeaderLabels([
+                            "Date", "Employee", "Store", "Credit", "Cash in Envelope", 
+                            "Expense", "Total", "Comments", "Actions"
+                        ])
             
             # Resize columns to fit content
             self.close_table.resizeColumnsToContents()
