@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS employee (
                                         userName VARCHAR(15),
                                         password VARCHAR(25) NULL,
                                         role ENUM('employee', 'manager', 'owner'),
-                                        bonus_percentage DECIMAL
+                                        bonus_percentage DECIMAL(10,2),
+                                        hourlyRate DECIMAL(10,2)
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
@@ -82,14 +83,28 @@ CREATE TABLE IF NOT EXISTS Invoice (
                                        FOREIGN KEY (store_id) REFERENCES Store(store_id)
 );
 
-CREATE TABLE IF NOT EXISTS Bonuses (
-                                       bonus_id INT AUTO_INCREMENT PRIMARY KEY,
-                                       employee_id INT,
-                                       store_id INT,
-                                       week_start DATE,
-                                       week_end DATE,
-                                       total_sales DECIMAL(10,2),
-                                       bonus_percentage DECIMAL(10,2),
-                                       FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
-                                       FOREIGN KEY (store_id) REFERENCES Store(store_id)
-);
+DELIMITER //
+
+CREATE TRIGGER before_employee_insert 
+BEFORE INSERT ON employee
+FOR EACH ROW
+BEGIN
+    IF NEW.bonus_percentage < 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Bonus percentage cannot be negative';
+    END IF;
+END//
+
+CREATE TRIGGER before_employee_update
+BEFORE UPDATE ON employee
+FOR EACH ROW
+BEGIN
+    IF NEW.bonus_percentage < 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Bonus percentage cannot be negative';
+    END IF;
+END//
+
+DELIMITER ;
+
+

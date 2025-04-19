@@ -11,6 +11,12 @@ class Ui_OwnerDialog(object):
     # Public API
     # ----------------------------------------------------------------------------
     def setupUi(self, Dialog, stacked_widget=None, employee_id=None):
+        # Initialize input widgets for close frame
+        self.closeCreditInput = QtWidgets.QLineEdit()
+        self.closeCashInEnvInput = QtWidgets.QLineEdit()
+        self.closeExpenseInput = QtWidgets.QLineEdit()
+        self.CloseCommentsInput = QtWidgets.QLineEdit()
+
         self.stacked_widget = stacked_widget  # Reference to QStackedWidget for navigation
         self.employee_id = employee_id  # Set the employee ID from the login page
         Dialog.setObjectName("Dialog")
@@ -208,9 +214,10 @@ class Ui_OwnerDialog(object):
             ("Expenses History", "#d35400"),
             ("Merchandise History", "#2ecc71"),
             ("Close History", "#3498db"),
+            ("Close Register", "#f39c12"),  # Added Close Register button
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
-            ("Manage Users", "#95a5a6"),  # Changed from "Manage Employees" to "Manage Users"
+            ("Manage Users", "#95a5a6"),
         ]
 
         self.sidebar_buttons = {}
@@ -282,11 +289,11 @@ class Ui_OwnerDialog(object):
         self.page_emp_hist = self._create_employee_history_page()
         self.page_exp_hist = self._create_expenses_history_page()
         self.page_merch_hist = self._create_merchandise_history_page()
-        self.page_close_hist = self._create_close_history_page()  # Added close history page
+        self.page_close_hist = self._create_close_history_page()
+        self.page_close = self._create_close_page()  # Added close page
         self.page_gross_profit = self._add_placeholder_page("Gross Profit")
-        self.page_payroll = self._add_placeholder_page("Payroll")
-        self.page_manage_emp = self._add_placeholder_page("Manage Employees")
-        self.page_manage_users = self._create_manage_users_page()  # Replace placeholder with actual page
+        self.page_payroll = self._create_payroll_page()
+        self.page_manage_users = self._create_manage_users_page()
 
         mc_layout.addWidget(self.stackedWidget)
         content_layout.addWidget(self.main_content)
@@ -302,10 +309,10 @@ class Ui_OwnerDialog(object):
             "Employee History": self.page_emp_hist,
             "Expenses History": self.page_exp_hist,
             "Merchandise History": self.page_merch_hist,
-            "Close History": self.page_close_hist,  # Added close history mapping
+            "Close History": self.page_close_hist,
+            "Close Register": self.page_close,  # Added close mapping
             "Gross Profit": self.page_gross_profit,
             "Payroll": self.page_payroll,
-            "Manage Employees": self.page_manage_emp,
             "Manage Users": self.page_manage_users,
         }
         for text, btn in self.sidebar_buttons.items():
@@ -3441,6 +3448,14 @@ class Ui_OwnerDialog(object):
         bonus_label.setStyleSheet(label_style)
         form_layout.addRow(bonus_label, self.bonus_input)
 
+        # Hourly Rate
+        self.hourly_rate_input = QtWidgets.QLineEdit()
+        self.hourly_rate_input.setStyleSheet(input_style)
+        self.hourly_rate_input.setText("15.00")  # Default value
+        hourly_rate_label = QtWidgets.QLabel("Hourly Rate ($)")
+        hourly_rate_label.setStyleSheet(label_style)
+        form_layout.addRow(hourly_rate_label, self.hourly_rate_input)
+
         layout.addWidget(form_container)
 
         # Submit button
@@ -3541,6 +3556,14 @@ class Ui_OwnerDialog(object):
         bonus_label = QtWidgets.QLabel("Bonus Percentage")
         bonus_label.setStyleSheet(label_style)
         form_layout.addRow(bonus_label, self.edit_bonus_input)
+
+        # Hourly Rate
+        self.edit_hourly_rate_input = QtWidgets.QLineEdit()
+        self.edit_hourly_rate_input.setStyleSheet(input_style)
+        self.edit_hourly_rate_input.setText("15.00")  # Default value
+        hourly_rate_label = QtWidgets.QLabel("Hourly Rate ($)")
+        hourly_rate_label.setStyleSheet(label_style)
+        form_layout.addRow(hourly_rate_label, self.edit_hourly_rate_input)
 
         layout.addWidget(form_container)
 
@@ -3673,7 +3696,7 @@ class Ui_OwnerDialog(object):
 
         try:
             query = """
-                SELECT role, bonus_percentage 
+                SELECT role, bonus_percentage, hourlyRate 
                 FROM employee 
                 WHERE employee_id = %s
             """
@@ -3681,19 +3704,24 @@ class Ui_OwnerDialog(object):
             results = connect(query, data)
 
             if results:
-                role, bonus = results[0]
+                role, bonus, hourly_rate = results[0]
                 if role in ["manager", "owner"]:
-                    self.edit_bonus_input.setText("1.0")
+                    self.edit_bonus_input.setText("1.00")
                     self.edit_bonus_input.setEnabled(False)
                 else:
-                    self.edit_bonus_input.setText(str(float(bonus) * 100))
+                    # Display bonus percentage with 2 decimal places
+                    self.edit_bonus_input.setText(f"{float(bonus):.2f}")
                     self.edit_bonus_input.setEnabled(True)
+                
+                # Set hourly rate
+                self.edit_hourly_rate_input.setText(f"{float(hourly_rate):.2f}" if hourly_rate else "15.00")
         except Exception as e:
             print(f"Error loading user data: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load user data: {e}")
 
     def add_user(self):
         """Handle adding a new user."""
+        from decimal import Decimal
         try:
             # Get input values
             role = self.role_combo.currentText()
@@ -3702,27 +3730,39 @@ class Ui_OwnerDialog(object):
             username = self.username_input.text().strip()
             password = self.password_input.text().strip()
             bonus = self.bonus_input.text().strip()
+            hourly_rate = self.hourly_rate_input.text().strip()
 
             # Validate inputs
             if not all([first_name, last_name, username, password]):
                 raise ValueError("All fields are required")
 
+            try:
+                hourly_rate = Decimal(hourly_rate).quantize(Decimal('0.01'))
+                if hourly_rate <= 0:
+                    raise ValueError("Hourly rate must be greater than 0")
+            except ValueError:
+                raise ValueError("Invalid hourly rate")
+
             if role == "employee":
                 try:
-                    # Convert percentage to multiplier (e.g., 3.5% becomes 1.035)
-                    bonus_value = 1 + (float(bonus) / 100)
-                except ValueError:
+                    # Store bonus percentage as is with 2 decimal precision
+                    bonus_value = Decimal(bonus).quantize(Decimal('0.01'))
+                    if bonus_value < 0:
+                        raise ValueError("Bonus percentage cannot be negative")
+                except ValueError as e:
+                    if "cannot be negative" in str(e):
+                        raise e
                     raise ValueError("Bonus percentage must be a number")
             else:
-                bonus_value = 1.0  # Managers and owners always have 1.0
+                bonus_value = Decimal('1.00')  # Managers and owners always have 1.0
 
             # Insert into database
             query = """
                 INSERT INTO employee 
-                (firstName, lastName, userName, password, role, bonus_percentage)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (firstName, lastName, userName, password, role, bonus_percentage, hourlyRate)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-            data = (first_name, last_name, username, password, role, bonus_value)
+            data = (first_name, last_name, username, password, role, str(bonus_value), str(hourly_rate))
             success = connect(query, data)
 
             if success:
@@ -3733,6 +3773,7 @@ class Ui_OwnerDialog(object):
                 self.username_input.clear()
                 self.password_input.clear()
                 self.bonus_input.clear()
+                self.hourly_rate_input.setText("15.00")  # Reset to default
                 # Refresh user lists
                 self._populate_user_combos()
             else:
@@ -3743,6 +3784,7 @@ class Ui_OwnerDialog(object):
 
     def update_user(self):
         """Handle updating an existing user."""
+        from decimal import Decimal
         try:
             user_id = self.edit_user_combo.currentData()
             if not user_id:
@@ -3751,10 +3793,18 @@ class Ui_OwnerDialog(object):
             # Get input values
             password = self.edit_password_input.text().strip()
             bonus = self.edit_bonus_input.text().strip()
+            hourly_rate = self.edit_hourly_rate_input.text().strip()
 
             # Validate inputs
             if not password:
                 raise ValueError("Password is required")
+
+            try:
+                hourly_rate = Decimal(hourly_rate).quantize(Decimal('0.01'))
+                if hourly_rate <= 0:
+                    raise ValueError("Hourly rate must be greater than 0")
+            except ValueError:
+                raise ValueError("Invalid hourly rate")
 
             # Get user role
             query = "SELECT role FROM employee WHERE employee_id = %s"
@@ -3766,19 +3816,26 @@ class Ui_OwnerDialog(object):
             role = results[0][0]
             if role == "employee":
                 try:
-                    bonus_value = float(bonus) / 100
-                except ValueError:
+                    # Store bonus percentage as is with 2 decimal precision
+                    bonus_value = Decimal(bonus).quantize(Decimal('0.01'))
+                    if bonus_value < 0:
+                        raise ValueError("Bonus percentage cannot be negative")
+                except ValueError as e:
+                    if "cannot be negative" in str(e):
+                        raise e
                     raise ValueError("Bonus percentage must be a number")
             else:
-                bonus_value = 1.0
+                bonus_value = Decimal('1.00')
 
             # Update database
             query = """
                 UPDATE employee 
-                SET password = %s, bonus_percentage = %s
+                SET password = %s, 
+                    bonus_percentage = %s,
+                    hourlyRate = %s
                 WHERE employee_id = %s
             """
-            data = (password, bonus_value, user_id)
+            data = (password, str(bonus_value), str(hourly_rate), user_id)
             success = connect(query, data)
 
             if success:
@@ -3786,6 +3843,7 @@ class Ui_OwnerDialog(object):
                 # Clear input fields
                 self.edit_password_input.clear()
                 self.edit_bonus_input.clear()
+                self.edit_hourly_rate_input.setText("15.00")  # Reset to default
             else:
                 raise Exception("Failed to update user")
 
@@ -3908,6 +3966,599 @@ class Ui_OwnerDialog(object):
             selected_date = calendar.selectedDate()
             self.expenses_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
             self.update_expenses_week_label()
+
+    def _create_close_page(self):
+        """Create the close register page with input fields and submit functionality."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(20)
+        
+        # Title
+        title = QtWidgets.QLabel("Close Register")
+        title.setStyleSheet("""
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        """)
+        layout.addWidget(title)
+        
+        # Form layout
+        form_layout = QtWidgets.QFormLayout()
+        form_layout.setSpacing(15)
+        
+        # Input fields
+        fields = [
+            ("Credit Amount", self.closeCreditInput),
+            ("Cash in Envelope", self.closeCashInEnvInput),
+            ("Expenses", self.closeExpenseInput),
+            ("Comments", self.CloseCommentsInput)
+        ]
+        
+        for label_text, input_widget in fields:
+            label = QtWidgets.QLabel(label_text)
+            label.setStyleSheet("""
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+            """)
+            
+            input_widget.setStyleSheet("""
+                QLineEdit {
+                    padding: 10px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    background-color: #f8f9fa;
+                }
+                QLineEdit:focus {
+                    border-color: #3498db;
+                    background-color: white;
+                }
+            """)
+            
+            form_layout.addRow(label, input_widget)
+        
+        layout.addLayout(form_layout)
+        
+        # Submit button
+        self.closeSubmitBtn = QtWidgets.QPushButton("Submit")
+        self.closeSubmitBtn.setStyleSheet("""
+            QPushButton {
+                background-color: #f39c12;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 20px;
+            }
+            QPushButton:hover {
+                background-color: #e67e22;
+            }
+            QPushButton:pressed {
+                background-color: #d35400;
+            }
+        """)
+        layout.addWidget(self.closeSubmitBtn)
+        
+        # Connect the submit button to the close_submit method
+        self.closeSubmitBtn.clicked.connect(self.close_submit)
+        
+        layout.addStretch()
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def close_submit(self):
+        """Handle the close register submission."""
+        print(f"Attempting to submit close register for employee ID: {self.employee_id}")
+        
+        if not self.employee_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
+            print("Error: Employee ID is missing")
+            return
+
+        if not self.store_id:
+            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
+            print("Error: Store ID is missing")
+            return
+
+        # Get store name
+        try:
+            query = "SELECT store_name FROM Store WHERE store_id = %s"
+            data = (self.store_id,)
+            print(f"Fetching store name. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Store name results: {results}")
+            
+            if not results:
+                QtWidgets.QMessageBox.critical(None, "Error", "Could not find store information.")
+                print("Error: Store not found")
+                return
+                
+            store_name = results[0][0]
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get store information: {e}")
+            print(f"Error getting store information: {e}")
+            return
+
+        # Get employee name
+        try:
+            query = "SELECT firstName, lastName FROM employee WHERE employee_id = %s"
+            data = (self.employee_id,)
+            print(f"Fetching employee name. Query: {query}, Data: {data}")
+            results = connect(query, data)
+            print(f"Employee name results: {results}")
+            
+            if not results:
+                QtWidgets.QMessageBox.critical(None, "Error", "Could not find employee information.")
+                print("Error: Employee not found")
+                return
+                
+            first_name = results[0][0]
+            last_name = results[0][1]
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get employee information: {e}")
+            print(f"Error getting employee information: {e}")
+            return
+
+        # Validate and get input values
+        try:
+            credit = float(self.closeCreditInput.text()) if self.closeCreditInput.text() else 0.0
+            cash_in_envelope = float(self.closeCashInEnvInput.text()) if self.closeCashInEnvInput.text() else 0.0
+            expense = float(self.closeExpenseInput.text()) if self.closeExpenseInput.text() else 0.0
+            comments = self.CloseCommentsInput.text() if self.CloseCommentsInput.text() else ""
+            
+            print(f"Input values - Credit: ${credit:.2f}, Cash: ${cash_in_envelope:.2f}, Expense: ${expense:.2f}")
+        except ValueError:
+            QtWidgets.QMessageBox.warning(None, "Invalid Input", "Please enter valid numbers for credit, cash, and expense amounts.")
+            print("Error: Invalid input values")
+            return
+
+        try:
+            # First, delete any existing record for this store on the current date
+            delete_query = """
+                DELETE FROM employee_close 
+                WHERE store_name = %s 
+                AND DATE(timestamp) = CURDATE()
+            """
+            delete_data = (store_name,)
+            print(f"Deleting existing close record. Query: {delete_query}, Data: {delete_data}")
+            connect(delete_query, delete_data)
+            
+            # Then insert the new record
+            insert_query = """
+                INSERT INTO employee_close 
+                (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            insert_data = (first_name, last_name, store_name, credit, cash_in_envelope, expense, comments, self.employee_id)
+            print(f"Inserting new close record. Query: {insert_query}, Data: {insert_data}")
+            success = connect(insert_query, insert_data)
+            print(f"Close register insert result: {success}")
+
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Close register submitted successfully.")
+                # Clear input fields
+                self.closeCreditInput.clear()
+                self.closeCashInEnvInput.clear()
+                self.closeExpenseInput.clear()
+                self.CloseCommentsInput.clear()
+                print("Close register submission successful")
+            else:
+                QtWidgets.QMessageBox.critical(None, "Error", "Failed to submit close register.")
+                print("Error: Close register insert failed")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit close register: {e}")
+            print(f"Error during close register submission: {e}")
+
+    def _create_payroll_page(self):
+        """Create the payroll page with employee selection and weekly pay details."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        title = QtWidgets.QLabel("Payroll")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Employee selection
+        self.payroll_employee_combo = QtWidgets.QComboBox()
+        self.payroll_employee_combo.setFixedWidth(250)
+        self.payroll_employee_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        controls_layout.addWidget(self.payroll_employee_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.payroll_prev_week_btn = QtWidgets.QPushButton("←")
+        self.payroll_prev_week_btn.setFixedSize(40, 40)
+        self.payroll_prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.payroll_week_label = QtWidgets.QLabel()
+        self.payroll_week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.payroll_week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.payroll_next_week_btn = QtWidgets.QPushButton("→")
+        self.payroll_next_week_btn.setFixedSize(40, 40)
+        self.payroll_next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.payroll_prev_week_btn)
+        week_nav_layout.addWidget(self.payroll_week_label)
+        week_nav_layout.addWidget(self.payroll_next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.payroll_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.payroll_calendar_btn.setFixedHeight(40)
+        self.payroll_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.payroll_calendar_btn)
+
+        # Refresh button
+        self.payroll_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.payroll_refresh_btn.setFixedHeight(40)
+        self.payroll_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.payroll_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Payroll table
+        self.payroll_table = QtWidgets.QTableWidget()
+        self.payroll_table.setColumnCount(7)
+        self.payroll_table.setHorizontalHeaderLabels([
+            "Date", "Hours Worked", "Hourly Rate", "Hourly Pay", 
+            "Register Diff", "Bonus", "Total Pay"
+        ])
+        self.payroll_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.payroll_table.setAlternatingRowColors(True)
+        self.payroll_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.payroll_table)
+
+        # Total pay label
+        self.total_pay_label = QtWidgets.QLabel()
+        self.total_pay_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+            }
+        """)
+        main_layout.addWidget(self.total_pay_label, alignment=QtCore.Qt.AlignRight)
+
+        # Initialize current week
+        self.payroll_current_week_start = self.get_week_start_date()
+        
+        # Connect signals
+        self.payroll_employee_combo.currentIndexChanged.connect(self.load_payroll)
+        self.payroll_prev_week_btn.clicked.connect(self.payroll_previous_week)
+        self.payroll_next_week_btn.clicked.connect(self.payroll_next_week)
+        self.payroll_calendar_btn.clicked.connect(self.payroll_show_calendar)
+        self.payroll_refresh_btn.clicked.connect(self.load_payroll)
+
+        # Initialize the page
+        self.populate_payroll_employees()
+        self.update_payroll_week_label()
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_payroll_employees(self):
+        """Populate the payroll employee combo box with employee names."""
+        try:
+            query = """
+                SELECT employee_id, firstName, lastName, role 
+                FROM employee 
+                WHERE role IN ('employee', 'manager')
+                ORDER BY role, lastName, firstName
+            """
+            results = connect(query, None)
+            
+            if results:
+                self.payroll_employee_combo.clear()
+                for employee in results:
+                    display_text = f"{employee[1]} {employee[2]} ({employee[3]})"
+                    self.payroll_employee_combo.addItem(display_text, employee[0])
+        except Exception as e:
+            print(f"Error populating payroll employees: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employees: {e}")
+
+    def update_payroll_week_label(self):
+        """Update the payroll week label with the current week range."""
+        week_end = self.payroll_current_week_start.addDays(6)
+        self.payroll_week_label.setText(
+            f"{self.payroll_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_payroll()
+
+    def payroll_previous_week(self):
+        """Navigate to the previous week in payroll."""
+        self.payroll_current_week_start = self.payroll_current_week_start.addDays(-7)
+        self.update_payroll_week_label()
+
+    def payroll_next_week(self):
+        """Navigate to the next week in payroll."""
+        self.payroll_current_week_start = self.payroll_current_week_start.addDays(7)
+        self.update_payroll_week_label()
+
+    def payroll_show_calendar(self):
+        """Show calendar dialog to select a date for payroll."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.payroll_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.payroll_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_payroll_week_label()
+
+    def load_payroll(self):
+        """Load the payroll data for the selected employee and week."""
+        from decimal import Decimal
+
+        employee_id = self.payroll_employee_combo.currentData()
+        if not employee_id:
+            return
+
+        try:
+            week_end = self.payroll_current_week_start.addDays(6)
+            
+            # Get employee's hourly rate and bonus percentage
+            query = """
+                SELECT COALESCE(hourlyRate, 15.00) as hourlyRate, 
+                       COALESCE(bonus_percentage, 0) as bonus_percentage 
+                FROM employee 
+                WHERE employee_id = %s
+            """
+            data = (employee_id,)
+            employee_info = connect(query, data)
+            
+            if not employee_info:
+                raise Exception("Could not find employee information")
+            
+            hourly_rate = float(employee_info[0][0])
+            bonus_percentage = float(employee_info[0][1])  # This is stored as the actual percentage (e.g., 3.4)
+            
+            # Get clock records for the week with more precise hour calculation
+            query = """
+                SELECT 
+                    DATE(clock_in) as date,
+                    ROUND(TIMESTAMPDIFF(MINUTE, clock_in, clock_out) / 60.0, 2) as hours_worked,
+                    COALESCE(reg_in, 0) as reg_in,
+                    COALESCE(reg_out, reg_in, 0) as reg_out
+                FROM clockTable
+                WHERE employee_id = %s 
+                AND DATE(clock_in) BETWEEN %s AND %s
+                AND clock_out IS NOT NULL
+                ORDER BY clock_in
+            """
+            data = (
+                employee_id,
+                self.payroll_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.payroll_table.setRowCount(0)
+            
+            total_weekly_pay = Decimal('0.00')
+            
+            if results:
+                for row_data in results:
+                    row = self.payroll_table.rowCount()
+                    self.payroll_table.insertRow(row)
+                    
+                    date = row_data[0]
+                    hours = float(row_data[1] if row_data[1] is not None else 0)
+                    reg_in = float(row_data[2])  # Already COALESCEd to 0 in query
+                    reg_out = float(row_data[3])  # Already COALESCEd to reg_in or 0 in query
+                    
+                    # Skip if no hours worked
+                    if hours <= 0:
+                        continue
+                    
+                    # Calculate pays using Decimal for precision
+                    hourly_pay = Decimal(str(hours * hourly_rate)).quantize(Decimal('0.01'))
+                    register_diff = Decimal(str(reg_out - reg_in)).quantize(Decimal('0.01'))
+                    
+                    # Calculate bonus based on the formula: (1 + bonus_percentage/100) * register_diff
+                    # If register_diff is negative, bonus is 0
+                    if register_diff > 0:
+                        bonus_multiplier = Decimal(str(1 + (bonus_percentage / 100)))
+                        bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                    else:
+                        bonus = Decimal('0.00')
+                    
+                    total_pay = (hourly_pay + bonus).quantize(Decimal('0.01'))
+                    total_weekly_pay += total_pay
+                    
+                    # Add items to table
+                    items = [
+                        str(date),
+                        f"{hours:.2f}",
+                        f"${hourly_rate:.2f}",
+                        f"${hourly_pay:.2f}",
+                        f"${register_diff:.2f}",
+                        f"${bonus:.2f}",
+                        f"${total_pay:.2f}"
+                    ]
+                    
+                    for col, item in enumerate(items):
+                        table_item = QtWidgets.QTableWidgetItem(item)
+                        table_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                        self.payroll_table.setItem(row, col, table_item)
+            
+            # Update total pay label
+            self.total_pay_label.setText(f"Total Weekly Pay: ${total_weekly_pay:.2f}")
+            
+            # Resize columns to fit content
+            self.payroll_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading payroll: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load payroll: {e}")
 
 
 # -----------------------------------------------------------------------------
