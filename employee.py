@@ -7,6 +7,8 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtCore import QUrl
 import os  # Import os for file path validation
+from decimal import Decimal
+import decimal
 
 
 class Ui_Dialog(object):
@@ -521,53 +523,122 @@ class Ui_Dialog(object):
 
         # Get the cash-out value from the input
         try:
-            reg_out = float(self.RegOutBalanceInput.text())
+            reg_out = Decimal(self.RegOutBalanceInput.text()).quantize(Decimal('0.01'))
             print(f"Register out amount: ${reg_out:.2f}")
-        except ValueError:
+        except (ValueError, decimal.InvalidOperation):
             QMessageBox.warning(None, "Invalid Input", "Please enter a valid cash-out amount.")
             print("Error: Invalid cash-out amount")
             return
 
-        # Check if the employee is clocked in
+        # Get employee's hourly rate and bonus percentage
         try:
-            query = "SELECT * FROM clockTable WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL"
-            data = (self.employee_id, self.store_id)
-            print(f"Checking if employee is clocked in. Query: {query}, Data: {data}")
-            results = connect(query, data)
-            print(f"Clock-out check results: {results}")
+            emp_query = "SELECT bonus_percentage, hourlyRate FROM employee WHERE employee_id = %s"
+            emp_result = connect(emp_query, (self.employee_id,))
+            if not emp_result:
+                raise Exception("Could not find employee information")
+            
+            bonus_percentage = Decimal(str(emp_result[0][0])).quantize(Decimal('0.01'))
+            hourly_rate = Decimal(str(emp_result[0][1])).quantize(Decimal('0.01'))
+            print(f"Employee bonus percentage: {bonus_percentage}%, hourly rate: ${hourly_rate}")
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"Failed to get employee information: {e}")
+            print(f"Error getting employee information: {e}")
+            return
 
-            if not results:
+        # Get clock in time and register in amount
+        try:
+            clock_query = """
+                SELECT clock_in, reg_in 
+                FROM clockTable 
+                WHERE employee_id = %s 
+                AND DATE(clock_in) = CURDATE()
+                AND clock_out IS NULL
+            """
+            clock_data = (self.employee_id,)
+            clock_result = connect(clock_query, clock_data)
+            
+            if not clock_result:
                 QMessageBox.warning(None, "Not Clocked In", "You are not clocked in. Please clock in first.")
                 print("Error: Employee not clocked in")
                 return
+                
+            clock_in_time = clock_result[0][0]
+            # Make clock_in_time timezone aware
+            if clock_in_time.tzinfo is None:
+                clock_in_time = miami_tz.localize(clock_in_time)
+            reg_in_amount = Decimal(str(clock_result[0][1])).quantize(Decimal('0.01'))
+            print(f"Clock in time: {clock_in_time}, Register in amount: ${reg_in_amount:.2f}")
         except Exception as e:
-            QMessageBox.critical(None, "Error", f"Failed to check clock-out status: {e}")
-            print(f"Error checking clock-out status: {e}")
+            QMessageBox.critical(None, "Error", f"Failed to get clock-in information: {e}")
+            print(f"Error getting clock-in information: {e}")
             return
 
-        # Update the clock-out entry
-        try:
-            query = """
-                UPDATE clockTable
-                SET clock_out = %s, reg_out = %s
-                WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL
+        # Calculate hours worked and wages
+        current_time = datetime.now()
+        time_diff = current_time - clock_in_time
+        hours_worked = Decimal(str(time_diff.total_seconds() / 3600)).quantize(Decimal('0.01'))  # Convert to hours
+        
+        # Calculate wages and bonus
+        wages = (hours_worked * Decimal(str(hourly_rate))).quantize(Decimal('0.01'))
+        total_amount = Decimal(str(reg_out)).quantize(Decimal('0.01'))
+        register_diff = (total_amount - Decimal(str(reg_in_amount))).quantize(Decimal('0.01'))
+        
+        # Calculate bonus based on the formula: (reg_out - reg_in) * (1 + bonus_percentage/100)
+        if register_diff > 0:
+            bonus_multiplier = (Decimal('1') + (Decimal(str(bonus_percentage)) / Decimal('100'))).quantize(Decimal('0.01'))
+            bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+        else:
+            bonus = Decimal('0.00')
+        
+        # Check if payroll record exists for this date and store
+        payroll_check_query = """
+            SELECT payroll_id, bonuses, wages 
+            FROM Payroll 
+            WHERE DATE(date) = CURDATE() 
+            AND store_id = %s
+        """
+        payroll_check_data = (self.store_id,)
+        payroll_result = connect(payroll_check_query, payroll_check_data)
+        
+        if payroll_result:
+            # Update existing payroll record
+            payroll_update_query = """
+                UPDATE Payroll 
+                SET bonuses = bonuses + %s,
+                    wages = wages + %s
+                WHERE payroll_id = %s
             """
-            data = (current_time, reg_out, self.employee_id, self.store_id)
-            print(f"Updating clock-out record. Query: {query}, Data: {data}")
-            success = connect(query, data)
-            print(f"Clock-out update result: {success}")
+            payroll_update_data = (str(bonus), str(wages), payroll_result[0][0])
+            connect(payroll_update_query, payroll_update_data)
+        else:
+            # Create new payroll record
+            payroll_insert_query = """
+                INSERT INTO Payroll (date, bonuses, wages, store_id)
+                VALUES (CURDATE(), %s, %s, %s)
+            """
+            payroll_insert_data = (str(bonus), str(wages), self.store_id)
+            connect(payroll_insert_query, payroll_insert_data)
+        
+        # Update clock out time and register out amount
+        clock_update_query = """
+            UPDATE clockTable 
+            SET clock_out = NOW(),
+                reg_out = %s
+            WHERE employee_id = %s 
+            AND DATE(clock_in) = CURDATE()
+            AND clock_out IS NULL
+        """
+        clock_update_data = (str(total_amount), self.employee_id)
+        clock_success = connect(clock_update_query, clock_update_data)
 
-            if success:
-                self.play_success_audio()  # Play success audio immediately
-                QMessageBox.information(None, "Clock-Out Successful", "You have successfully clocked out.")
-                self.RegOutBalanceInput.clear()  # Clear the input field
-                print("Clock-out successful")
-            else:
-                QMessageBox.critical(None, "Clock-Out Failed", "An error occurred while clocking out.")
-                print("Error: Clock-out update failed")
-        except Exception as e:
-            QMessageBox.critical(None, "Error", f"Failed to clock out: {e}")
-            print(f"Error during clock-out: {e}")
+        if clock_success:
+            self.play_success_audio()  # Play success audio immediately
+            QMessageBox.information(None, "Clock-Out Successful", "You have successfully clocked out.")
+            self.RegOutBalanceInput.clear()  # Clear the input field
+            print("Clock-out successful")
+        else:
+            QMessageBox.critical(None, "Clock-Out Failed", "An error occurred while clocking out.")
+            print("Error: Clock-out update failed")
 
     def create_close_frame(self):
         self.btnClose = QtWidgets.QWidget()

@@ -3,9 +3,7 @@ from sqlConnector import connect  # Import the database connection function
 
 
 class Ui_ManagerDialog(object):  # Changed class name
-    """A PyQt5 manager page UI with modern aesthetics and placeholder frames.
-    No backend logic is included – this is strictly the front‑end layout.
-    """
+
 
     # ----------------------------------------------------------------------------
     # Public API

@@ -1,11 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from sqlConnector import connect  # Import the database connection function
+from datetime import datetime  # Add datetime import
 
 
 class Ui_OwnerDialog(object):
-    """A PyQt5 owner page UI with modern aesthetics and placeholder frames.
-    No backend logic is included – this is strictly the front‑end layout.
-    """
+
 
     # ----------------------------------------------------------------------------
     # Public API
@@ -218,6 +217,7 @@ class Ui_OwnerDialog(object):
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
             ("Manage Users", "#95a5a6"),
+            ("Manage Stores", "#1abc9c"),  # Added Manage Stores button
         ]
 
         self.sidebar_buttons = {}
@@ -291,9 +291,10 @@ class Ui_OwnerDialog(object):
         self.page_merch_hist = self._create_merchandise_history_page()
         self.page_close_hist = self._create_close_history_page()
         self.page_close = self._create_close_page()  # Added close page
-        self.page_gross_profit = self._add_placeholder_page("Gross Profit")
+        self.page_gross_profit = self._create_gross_profit_page()  # Use actual gross profit page
         self.page_payroll = self._create_payroll_page()
         self.page_manage_users = self._create_manage_users_page()
+        self.page_manage_stores = self._create_manage_stores_page()  # Added manage stores page
 
         mc_layout.addWidget(self.stackedWidget)
         content_layout.addWidget(self.main_content)
@@ -314,6 +315,7 @@ class Ui_OwnerDialog(object):
             "Gross Profit": self.page_gross_profit,
             "Payroll": self.page_payroll,
             "Manage Users": self.page_manage_users,
+            "Manage Stores": self.page_manage_stores,  # Added mapping for manage stores
         }
         for text, btn in self.sidebar_buttons.items():
             btn.clicked.connect(lambda checked, w=mapping[text]: self.stackedWidget.setCurrentWidget(w))
@@ -1388,6 +1390,7 @@ class Ui_OwnerDialog(object):
 
     def submit_changes(self):
         """Submit all changes to the database."""
+        from decimal import Decimal
         if not hasattr(self, 'changed_cells') or not self.changed_cells:
             return
             
@@ -1396,6 +1399,15 @@ class Ui_OwnerDialog(object):
             return
             
         try:
+            # Get employee's hourly rate and bonus percentage
+            emp_query = "SELECT bonus_percentage, hourlyRate FROM employee WHERE employee_id = %s"
+            emp_result = connect(emp_query, (employee_id,))
+            if not emp_result:
+                raise Exception("Could not find employee information")
+            
+            bonus_percentage = Decimal(str(emp_result[0][0])).quantize(Decimal('0.01'))
+            hourly_rate = Decimal(str(emp_result[0][1])).quantize(Decimal('0.01'))
+            
             # Get unique dates and times from changed cells
             changed_records = {}
             for cell in self.changed_cells:
@@ -1425,6 +1437,7 @@ class Ui_OwnerDialog(object):
                     
                     # Get the original record
                     original_record = results[0]
+                    store_id = original_record[2]  # store_id from clockTable
                     
                     # Create a new record with updated values
                     new_record = list(original_record)
@@ -1439,6 +1452,77 @@ class Ui_OwnerDialog(object):
                             new_record[5] = float(new_value.replace('$', ''))
                         elif column == 4:  # Register Out
                             new_record[6] = float(new_value.replace('$', ''))
+                    
+                    # Calculate updated payroll values
+                    clock_in_dt = new_record[3] if isinstance(new_record[3], datetime) else datetime.strptime(new_record[3], "%Y-%m-%d %H:%M:%S")
+                    clock_out_dt = new_record[4] if isinstance(new_record[4], datetime) else datetime.strptime(new_record[4], "%Y-%m-%d %H:%M:%S") if new_record[4] else None
+                    reg_in = Decimal(str(new_record[5])).quantize(Decimal('0.01'))
+                    reg_out = Decimal(str(new_record[6])).quantize(Decimal('0.01')) if new_record[6] is not None else reg_in
+                    
+                    if clock_out_dt:
+                        # Calculate hours worked and wages
+                        time_diff = clock_out_dt - clock_in_dt
+                        hours_worked = Decimal(str(time_diff.total_seconds() / 3600)).quantize(Decimal('0.01'))
+                        wages = (hours_worked * hourly_rate).quantize(Decimal('0.01'))
+                        register_diff = (reg_out - reg_in).quantize(Decimal('0.01'))
+                        bonus_multiplier = (Decimal('1') + (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
+                        bonus = Decimal('0') if register_diff <= 0 else (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                        
+                        # Update or create payroll record
+                        payroll_check_query = """
+                            SELECT payroll_id, bonuses, wages 
+                            FROM Payroll 
+                            WHERE DATE(date) = %s 
+                            AND store_id = %s
+                        """
+                        payroll_check_data = (date, store_id)
+                        payroll_result = connect(payroll_check_query, payroll_check_data)
+                        
+                        if payroll_result:
+                            # Get the original clock record to subtract old values
+                            old_clock_query = """
+                                SELECT 
+                                    TIMESTAMPDIFF(SECOND, clock_in, clock_out) / 3600 as hours,
+                                    reg_in,
+                                    reg_out
+                                FROM clockTable 
+                                WHERE employee_id = %s 
+                                AND DATE(clock_in) = %s 
+                                AND TIME(clock_in) = %s
+                            """
+                            old_clock_data = (employee_id, date, clock_in_time)
+                            old_clock_result = connect(old_clock_query, old_clock_data)
+                            
+                            if old_clock_result:
+                                old_hours = Decimal(str(old_clock_result[0][0])).quantize(Decimal('0.01'))
+                                old_reg_in = Decimal(str(old_clock_result[0][1])).quantize(Decimal('0.01'))
+                                old_reg_out = Decimal(str(old_clock_result[0][2])).quantize(Decimal('0.01')) if old_clock_result[0][2] is not None else old_reg_in
+                                
+                                old_wages = (old_hours * hourly_rate).quantize(Decimal('0.01'))
+                                old_register_diff = (old_reg_out - old_reg_in).quantize(Decimal('0.01'))
+                                old_bonus = Decimal('0') if old_register_diff <= 0 else (old_register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                                
+                                # Update payroll by removing old values and adding new ones
+                                payroll_update_query = """
+                                    UPDATE Payroll 
+                                    SET bonuses = bonuses - %s + %s,
+                                        wages = wages - %s + %s
+                                    WHERE payroll_id = %s
+                                """
+                                payroll_update_data = (
+                                    str(old_bonus), str(bonus),
+                                    str(old_wages), str(wages),
+                                    payroll_result[0][0]
+                                )
+                                connect(payroll_update_query, payroll_update_data)
+                        else:
+                            # Create new payroll record
+                            payroll_insert_query = """
+                                INSERT INTO Payroll (date, bonuses, wages, store_id)
+                                VALUES (%s, %s, %s, %s)
+                            """
+                            payroll_insert_data = (date, str(bonus), str(wages), store_id)
+                            connect(payroll_insert_query, payroll_insert_data)
                     
                     # Delete the old record
                     delete_query = """
@@ -1697,7 +1781,6 @@ class Ui_OwnerDialog(object):
 
         # Get the current time
         try:
-            from datetime import datetime
             current_time = datetime.now()
             print(f"Current time: {current_time}")
         except Exception as e:
@@ -1766,13 +1849,13 @@ class Ui_OwnerDialog(object):
             if credit < 0 or cash < 0 or expense < 0:
                 raise ValueError("Values cannot be negative")
             
-            # Get employee name
-            name_query = "SELECT firstName, lastName FROM employee WHERE employee_id = %s"
-            name_result = connect(name_query, (self.employee_id,))
-            if not name_result:
+            # Get employee name and bonus percentage
+            emp_query = "SELECT firstName, lastName, bonus_percentage, hourlyRate FROM employee WHERE employee_id = %s"
+            emp_result = connect(emp_query, (self.employee_id,))
+            if not emp_result:
                 raise Exception("Could not find employee information")
             
-            firstName, lastName = name_result[0]
+            firstName, lastName, bonus_percentage, hourly_rate = emp_result[0]
             
             # Use REPLACE INTO to handle duplicate entries for the same store and date
             close_query = """
@@ -1795,8 +1878,65 @@ class Ui_OwnerDialog(object):
             if not close_success:
                 raise Exception("Failed to submit close information")
             
-            # Update clock out time and register out amount
+            # Get clock in time and calculate hours worked
             clock_query = """
+                SELECT clock_in, reg_in 
+                FROM clockTable 
+                WHERE employee_id = %s 
+                AND DATE(clock_in) = CURDATE()
+                AND clock_out IS NULL
+            """
+            clock_data = (self.employee_id,)
+            clock_result = connect(clock_query, clock_data)
+            
+            if not clock_result:
+                raise Exception("No clock-in record found")
+                
+            clock_in_time = clock_result[0][0]
+            reg_in_amount = float(clock_result[0][1])
+            
+            # Calculate hours worked
+            current_time = datetime.now()
+            time_diff = current_time - clock_in_time
+            hours_worked = time_diff.total_seconds() / 3600  # Convert to hours
+            
+            # Calculate wages and bonus
+            wages = hours_worked * hourly_rate
+            register_diff = (credit + cash) - reg_in_amount
+            bonus_multiplier = 1 + (float(bonus_percentage) / 100)
+            bonus = max(0, register_diff * bonus_multiplier)  # Ensure bonus isn't negative
+            
+            # Check if payroll record exists for this date and store
+            payroll_check_query = """
+                SELECT payroll_id, bonuses, wages 
+                FROM Payroll 
+                WHERE DATE(date) = CURDATE() 
+                AND store_id = %s
+            """
+            payroll_check_data = (self.store_id,)
+            payroll_result = connect(payroll_check_query, payroll_check_data)
+            
+            if payroll_result:
+                # Update existing payroll record
+                payroll_update_query = """
+                    UPDATE Payroll 
+                    SET bonuses = bonuses + %s,
+                        wages = wages + %s
+                    WHERE payroll_id = %s
+                """
+                payroll_update_data = (bonus, wages, payroll_result[0][0])
+                connect(payroll_update_query, payroll_update_data)
+            else:
+                # Create new payroll record
+                payroll_insert_query = """
+                    INSERT INTO Payroll (date, bonuses, wages, store_id)
+                    VALUES (CURDATE(), %s, %s, %s)
+                """
+                payroll_insert_data = (bonus, wages, self.store_id)
+                connect(payroll_insert_query, payroll_insert_data)
+            
+            # Update clock out time and register out amount
+            clock_update_query = """
                 UPDATE clockTable 
                 SET clock_out = NOW(),
                     reg_out = %s
@@ -1804,8 +1944,8 @@ class Ui_OwnerDialog(object):
                 AND DATE(clock_in) = CURDATE()
                 AND clock_out IS NULL
             """
-            clock_data = (credit + cash, self.employee_id)
-            clock_success = connect(clock_query, clock_data)
+            clock_update_data = (credit + cash, self.employee_id)
+            clock_success = connect(clock_update_query, clock_update_data)
             
             if clock_success:
                 QtWidgets.QMessageBox.information(None, "Success", "Successfully clocked out!")
@@ -4523,10 +4663,10 @@ class Ui_OwnerDialog(object):
                     hourly_pay = Decimal(str(hours * hourly_rate)).quantize(Decimal('0.01'))
                     register_diff = Decimal(str(reg_out - reg_in)).quantize(Decimal('0.01'))
                     
-                    # Calculate bonus based on the formula: (1 + bonus_percentage/100) * register_diff
+                    # Calculate bonus based on the formula: (reg_out - reg_in) * (1 + bonus_percentage/100)
                     # If register_diff is negative, bonus is 0
                     if register_diff > 0:
-                        bonus_multiplier = Decimal(str(1 + (bonus_percentage / 100)))
+                        bonus_multiplier = Decimal(str(1 + (bonus_percentage / 100))).quantize(Decimal('0.01'))
                         bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
                     else:
                         bonus = Decimal('0.00')
@@ -4560,6 +4700,871 @@ class Ui_OwnerDialog(object):
             print(f"Error loading payroll: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load payroll: {e}")
 
+    def _create_manage_stores_page(self):
+        """Create the store management page with add, edit, and delete functionality."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        title = QtWidgets.QLabel("Manage Stores")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Store list and controls container
+        content_container = QtWidgets.QWidget()
+        content_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
+        content_layout = QtWidgets.QHBoxLayout(content_container)
+        content_layout.setSpacing(20)
+
+        # Left side - Store list
+        list_container = QtWidgets.QWidget()
+        list_layout = QtWidgets.QVBoxLayout(list_container)
+        list_layout.setSpacing(10)
+
+        # Store list
+        self.store_list = QtWidgets.QListWidget()
+        self.store_list.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                padding: 5px;
+                background-color: #f8f9fa;
+            }
+            QListWidget::item {
+                padding: 10px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QListWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+        """)
+        list_layout.addWidget(self.store_list)
+
+        content_layout.addWidget(list_container)
+
+        # Right side - Add/Edit form
+        form_container = QtWidgets.QWidget()
+        form_layout = QtWidgets.QFormLayout(form_container)
+        form_layout.setSpacing(15)
+
+        # Input styling
+        input_style = """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+                background-color: white;
+            }
+        """
+
+        # Label styling
+        label_style = """
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """
+
+        # Store name input
+        self.store_name_input = QtWidgets.QLineEdit()
+        self.store_name_input.setStyleSheet(input_style)
+        store_name_label = QtWidgets.QLabel("Store Name")
+        store_name_label.setStyleSheet(label_style)
+        form_layout.addRow(store_name_label, self.store_name_input)
+
+        # Store location input
+        self.store_location_input = QtWidgets.QLineEdit()
+        self.store_location_input.setStyleSheet(input_style)
+        location_label = QtWidgets.QLabel("Location")
+        location_label.setStyleSheet(label_style)
+        form_layout.addRow(location_label, self.store_location_input)
+
+        # Buttons container
+        buttons_container = QtWidgets.QWidget()
+        buttons_layout = QtWidgets.QHBoxLayout(buttons_container)
+        buttons_layout.setSpacing(10)
+
+        # Add button
+        self.add_store_btn = QtWidgets.QPushButton("Add Store")
+        self.add_store_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        self.add_store_btn.clicked.connect(self.add_store)
+        buttons_layout.addWidget(self.add_store_btn)
+
+        # Update button
+        self.update_store_btn = QtWidgets.QPushButton("Update Store")
+        self.update_store_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.update_store_btn.clicked.connect(self.update_store)
+        self.update_store_btn.setEnabled(False)
+        buttons_layout.addWidget(self.update_store_btn)
+
+        # Delete button
+        self.delete_store_btn = QtWidgets.QPushButton("Delete Store")
+        self.delete_store_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.delete_store_btn.clicked.connect(self.delete_store)
+        self.delete_store_btn.setEnabled(False)
+        buttons_layout.addWidget(self.delete_store_btn)
+
+        form_layout.addRow(buttons_container)
+        content_layout.addWidget(form_container)
+        main_layout.addWidget(content_container)
+
+        # Connect signals
+        self.store_list.itemSelectionChanged.connect(self.on_store_selected)
+
+        # Load existing stores
+        self.load_stores()
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def load_stores(self):
+        """Load existing stores into the list widget."""
+        try:
+            query = "SELECT store_id, store_name, location FROM Store ORDER BY store_name"
+            results = connect(query, None)
+            
+            self.store_list.clear()
+            if results:
+                for store in results:
+                    item = QtWidgets.QListWidgetItem(f"{store[1]} ({store[2]})")
+                    item.setData(QtCore.Qt.UserRole, store[0])  # Store ID
+                    self.store_list.addItem(item)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def on_store_selected(self):
+        """Handle store selection in the list."""
+        selected_items = self.store_list.selectedItems()
+        if selected_items:
+            store_id = selected_items[0].data(QtCore.Qt.UserRole)
+            try:
+                query = "SELECT store_name, location FROM Store WHERE store_id = %s"
+                results = connect(query, (store_id,))
+                
+                if results:
+                    store = results[0]
+                    self.store_name_input.setText(store[0])
+                    self.store_location_input.setText(store[1])
+                    
+                    self.update_store_btn.setEnabled(True)
+                    self.delete_store_btn.setEnabled(True)
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load store details: {e}")
+        else:
+            self.store_name_input.clear()
+            self.store_location_input.clear()
+            self.update_store_btn.setEnabled(False)
+            self.delete_store_btn.setEnabled(False)
+
+    def add_store(self):
+        """Add a new store to the database."""
+        try:
+            store_name = self.store_name_input.text().strip()
+            location = self.store_location_input.text().strip()
+            
+            if not store_name or not location:
+                raise ValueError("Store name and location are required")
+            
+            query = "INSERT INTO Store (store_name, location) VALUES (%s, %s)"
+            data = (store_name, location)
+            success = connect(query, data)
+            
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Store added successfully")
+                self.store_name_input.clear()
+                self.store_location_input.clear()
+                self.load_stores()
+                
+                # Refresh store combo boxes throughout the application
+                self.populate_stores()
+                self.populate_expenses_stores()
+                self.populate_merchandise_stores()
+                self.populate_close_stores()
+            else:
+                raise Exception("Failed to add store")
+                
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def update_store(self):
+        """Update the selected store."""
+        selected_items = self.store_list.selectedItems()
+        if not selected_items:
+            return
+            
+        try:
+            store_id = selected_items[0].data(QtCore.Qt.UserRole)
+            store_name = self.store_name_input.text().strip()
+            location = self.store_location_input.text().strip()
+            
+            if not store_name or not location:
+                raise ValueError("Store name and location are required")
+            
+            query = "UPDATE Store SET store_name = %s, location = %s WHERE store_id = %s"
+            data = (store_name, location, store_id)
+            success = connect(query, data)
+            
+            if success:
+                QtWidgets.QMessageBox.information(None, "Success", "Store updated successfully")
+                self.load_stores()
+                
+                # Refresh store combo boxes throughout the application
+                self.populate_stores()
+                self.populate_expenses_stores()
+                self.populate_merchandise_stores()
+                self.populate_close_stores()
+            else:
+                raise Exception("Failed to update store")
+                
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def delete_store(self):
+        """Delete the selected store."""
+        selected_items = self.store_list.selectedItems()
+        if not selected_items:
+            return
+            
+        store_id = selected_items[0].data(QtCore.Qt.UserRole)
+        store_name = selected_items[0].text()
+        
+        reply = QtWidgets.QMessageBox.question(
+            None,
+            "Confirm Deletion",
+            f"Are you sure you want to delete the store '{store_name}'?\nThis will also delete all associated records.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+        
+        if reply == QtWidgets.QMessageBox.Yes:
+            try:
+                # Delete associated records first
+                tables = ["Invoice", "expenses", "merchandise", "clockTable", "employee_close"]
+                for table in tables:
+                    query = f"DELETE FROM {table} WHERE store_id = %s"
+                    connect(query, (store_id,))
+                
+                # Delete the store
+                query = "DELETE FROM Store WHERE store_id = %s"
+                success = connect(query, (store_id,))
+                
+                if success:
+                    QtWidgets.QMessageBox.information(None, "Success", "Store deleted successfully")
+                    self.store_name_input.clear()
+                    self.store_location_input.clear()
+                    self.load_stores()
+                    
+                    # Refresh store combo boxes throughout the application
+                    self.populate_stores()
+                    self.populate_expenses_stores()
+                    self.populate_merchandise_stores()
+                    self.populate_close_stores()
+                else:
+                    raise Exception("Failed to delete store")
+                    
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(None, "Error", str(e))
+
+    def _create_gross_profit_page(self):
+        """Create the gross profit page with store selection and profit details."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        title = QtWidgets.QLabel("Gross Profit")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Store selection
+        self.profit_store_combo = QtWidgets.QComboBox()
+        self.profit_store_combo.setFixedWidth(250)
+        self.profit_store_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        controls_layout.addWidget(self.profit_store_combo)
+
+        # Week navigation
+        week_nav_container = QtWidgets.QWidget()
+        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
+        week_nav_layout.setSpacing(10)
+
+        self.profit_prev_week_btn = QtWidgets.QPushButton("←")
+        self.profit_prev_week_btn.setFixedSize(40, 40)
+        self.profit_prev_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.profit_week_label = QtWidgets.QLabel()
+        self.profit_week_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.profit_week_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.profit_next_week_btn = QtWidgets.QPushButton("→")
+        self.profit_next_week_btn.setFixedSize(40, 40)
+        self.profit_next_week_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        week_nav_layout.addWidget(self.profit_prev_week_btn)
+        week_nav_layout.addWidget(self.profit_week_label)
+        week_nav_layout.addWidget(self.profit_next_week_btn)
+        controls_layout.addWidget(week_nav_container)
+
+        # Calendar button
+        self.profit_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.profit_calendar_btn.setFixedHeight(40)
+        self.profit_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.profit_calendar_btn)
+
+        # Refresh button
+        self.profit_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.profit_refresh_btn.setFixedHeight(40)
+        self.profit_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.profit_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Profit table
+        self.profit_table = QtWidgets.QTableWidget()
+        self.profit_table.setColumnCount(8)
+        self.profit_table.setHorizontalHeaderLabels([
+            "Date", "Cash", "Credit", "Expenses", "Merchandise", "Payroll", "Total", "Details"
+        ])
+        self.profit_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.profit_table.setAlternatingRowColors(True)
+        self.profit_table.horizontalHeader().setStretchLastSection(True)
+        main_layout.addWidget(self.profit_table)
+
+        # Total profit label
+        self.total_profit_label = QtWidgets.QLabel()
+        self.total_profit_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+            }
+        """)
+        main_layout.addWidget(self.total_profit_label, alignment=QtCore.Qt.AlignRight)
+
+        # Initialize current week
+        self.profit_current_week_start = self.get_week_start_date()
+        
+        # Connect signals
+        self.profit_store_combo.currentIndexChanged.connect(self.load_profit)
+        self.profit_prev_week_btn.clicked.connect(self.profit_previous_week)
+        self.profit_next_week_btn.clicked.connect(self.profit_next_week)
+        self.profit_calendar_btn.clicked.connect(self.profit_show_calendar)
+        self.profit_refresh_btn.clicked.connect(self.load_profit)
+
+        # Initialize the page
+        self.populate_profit_stores()
+        self.update_profit_week_label()
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def populate_profit_stores(self):
+        """Populate the profit store combo box with store names."""
+        try:
+            query = "SELECT store_id, store_name FROM Store ORDER BY store_name"
+            results = connect(query, None)
+            
+            if results:
+                self.profit_store_combo.clear()
+                for store in results:
+                    self.profit_store_combo.addItem(store[1], store[0])
+        except Exception as e:
+            print(f"Error populating profit stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def update_profit_week_label(self):
+        """Update the profit week label with the current week range."""
+        week_end = self.profit_current_week_start.addDays(6)
+        self.profit_week_label.setText(
+            f"{self.profit_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+        )
+        self.load_profit()
+
+    def profit_previous_week(self):
+        """Navigate to the previous week in profit view."""
+        self.profit_current_week_start = self.profit_current_week_start.addDays(-7)
+        self.update_profit_week_label()
+
+    def profit_next_week(self):
+        """Navigate to the next week in profit view."""
+        self.profit_current_week_start = self.profit_current_week_start.addDays(7)
+        self.update_profit_week_label()
+
+    def profit_show_calendar(self):
+        """Show calendar dialog to select a date for profit view."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.profit_current_week_start)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            self.profit_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
+            self.update_profit_week_label()
+
+    def load_profit(self):
+        """Load the profit data for the selected store and week."""
+        from decimal import Decimal
+
+        store_id = self.profit_store_combo.currentData()
+        if not store_id:
+            return
+
+        try:
+            week_end = self.profit_current_week_start.addDays(6)
+            
+            # Get store name for the query
+            store_name = self.profit_store_combo.currentText()
+            
+            # Get daily data from employee_close table
+            query = """
+                SELECT 
+                    DATE(timestamp) as date,
+                    COALESCE(cash_in_envelope, 0) as cash,
+                    COALESCE(credit, 0) as credit,
+                    COALESCE(expense, 0) as expenses
+                FROM employee_close
+                WHERE store_name = %s 
+                AND DATE(timestamp) BETWEEN %s AND %s
+                ORDER BY date
+            """
+            data = (
+                store_name,
+                self.profit_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            close_results = connect(query, data)
+            
+            # Get merchandise data
+            query = """
+                SELECT 
+                    DATE(merchandise_date) as date,
+                    SUM(quantity * unitPrice) as total
+                FROM merchandise
+                WHERE store_id = %s 
+                AND DATE(merchandise_date) BETWEEN %s AND %s
+                GROUP BY DATE(merchandise_date)
+            """
+            data = (
+                store_id,
+                self.profit_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            merch_results = connect(query, data)
+            
+            # Get payroll data
+            query = """
+                SELECT 
+                    DATE(date) as date,
+                    COALESCE(SUM(bonuses), 0) as bonuses,
+                    COALESCE(SUM(wages), 0) as wages
+                FROM Payroll
+                WHERE store_id = %s 
+                AND DATE(date) BETWEEN %s AND %s
+                GROUP BY DATE(date)
+            """
+            data = (
+                store_id,
+                self.profit_current_week_start.toPyDate(),
+                week_end.toPyDate()
+            )
+            payroll_results = connect(query, data)
+            
+            # Clear existing table data
+            self.profit_table.setRowCount(0)
+            
+            # Create dictionaries for merchandise and payroll data
+            merch_dict = {str(row[0]): float(row[1]) for row in merch_results} if merch_results else {}
+            payroll_dict = {
+                str(row[0]): float(row[1] + row[2]) 
+                for row in payroll_results
+            } if payroll_results else {}
+            
+            total_weekly_profit = Decimal('0.00')
+            
+            if close_results:
+                for row_data in close_results:
+                    row = self.profit_table.rowCount()
+                    self.profit_table.insertRow(row)
+                    
+                    date = str(row_data[0])
+                    cash = Decimal(str(row_data[1])).quantize(Decimal('0.01'))
+                    credit = Decimal(str(row_data[2])).quantize(Decimal('0.01'))
+                    expenses = Decimal(str(row_data[3])).quantize(Decimal('0.01'))
+                    merchandise = Decimal(str(merch_dict.get(date, 0))).quantize(Decimal('0.01'))
+                    payroll = Decimal(str(payroll_dict.get(date, 0))).quantize(Decimal('0.01'))
+                    
+                    # Calculate daily profit
+                    daily_profit = (cash + credit - expenses - merchandise - payroll).quantize(Decimal('0.01'))
+                    total_weekly_profit += daily_profit
+                    
+                    # Create details button
+                    details_btn = QtWidgets.QPushButton("View")
+                    details_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #3498db;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 5px 10px;
+                            font-size: 12px;
+                        }
+                        QPushButton:hover {
+                            background-color: #2980b9;
+                        }
+                    """)
+                    
+                    # Add items to table
+                    items = [
+                        date,
+                        f"${cash:.2f}",
+                        f"${credit:.2f}",
+                        f"${expenses:.2f}",
+                        f"${merchandise:.2f}",
+                        f"${payroll:.2f}",
+                        f"${daily_profit:.2f}"
+                    ]
+                    
+                    for col, item in enumerate(items):
+                        table_item = QtWidgets.QTableWidgetItem(item)
+                        table_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                        self.profit_table.setItem(row, col, table_item)
+                    
+                    # Add details button to the last column
+                    self.profit_table.setCellWidget(row, 7, details_btn)
+                    
+                    # Connect the details button to show the breakdown
+                    details_btn.clicked.connect(
+                        lambda checked, d=date, p={
+                            'Cash': cash,
+                            'Credit': credit,
+                            'Expenses': expenses,
+                            'Merchandise': merchandise,
+                            'Payroll': payroll,
+                            'Total': daily_profit
+                        }: self.show_profit_details(d, p)
+                    )
+            
+            # Update total profit label with color based on profit/loss
+            color = "#27ae60" if total_weekly_profit >= 0 else "#c0392b"
+            self.total_profit_label.setStyleSheet(f"""
+                QLabel {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: {color};
+                    padding: 15px;
+                    background-color: #f8f9fa;
+                    border-radius: 6px;
+                }}
+            """)
+            self.total_profit_label.setText(f"Total Weekly Profit: ${total_weekly_profit:.2f}")
+            
+            # Resize columns to fit content
+            self.profit_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading profit data: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load profit data: {e}")
+
+    def show_profit_details(self, date, profit_data):
+        """Show a detailed breakdown of the profit calculation for a specific date."""
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle(f"Profit Details - {date}")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        
+        # Create a table for the breakdown
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Item", "Amount"])
+        table.setRowCount(len(profit_data))
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }
+        """)
+        
+        # Add the data
+        for row, (item, amount) in enumerate(profit_data.items()):
+            # Item name
+            name_item = QtWidgets.QTableWidgetItem(item)
+            table.setItem(row, 0, name_item)
+            
+            # Amount with color coding for the total
+            amount_item = QtWidgets.QTableWidgetItem(f"${amount:.2f}")
+            if item == "Total":
+                color = "#27ae60" if amount >= 0 else "#c0392b"
+                amount_item.setForeground(QtGui.QColor(color))
+                font = amount_item.font()
+                font.setBold(True)
+                amount_item.setFont(font)
+            table.setItem(row, 1, amount_item)
+        
+        # Adjust table properties
+        table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        
+        layout.addWidget(table)
+        
+        # Add close button
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        
+        dialog.exec_()
 
 # -----------------------------------------------------------------------------
 # Stand‑alone test

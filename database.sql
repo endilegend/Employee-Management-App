@@ -82,6 +82,14 @@ CREATE TABLE IF NOT EXISTS Invoice (
                                        store_id INT,
                                        FOREIGN KEY (store_id) REFERENCES Store(store_id)
 );
+CREATE TABLE IF NOT EXISTS Payroll (
+                                       payroll_id INT AUTO_INCREMENT PRIMARY KEY,
+                                       date DATE,
+                                       bonuses DECIMAL(10,2),
+                                       wages DECIMAL(10,2),
+                                       store_id INT,
+                                       FOREIGN KEY (store_id) REFERENCES Store(store_id)
+);
 
 DELIMITER //
 
