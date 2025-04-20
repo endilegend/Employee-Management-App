@@ -16,6 +16,10 @@ class Ui_OwnerDialog(object):
         self.closeExpenseInput = QtWidgets.QLineEdit()
         self.CloseCommentsInput = QtWidgets.QLineEdit()
 
+        # Initialize expenses view attributes
+        self.expenses_current_date = QtCore.QDate.currentDate()
+        self.is_expenses_weekly_view = True
+
         self.stacked_widget = stacked_widget  # Reference to QStackedWidget for navigation
         self.employee_id = employee_id  # Set the employee ID from the login page
         Dialog.setObjectName("Dialog")
@@ -1750,7 +1754,27 @@ class Ui_OwnerDialog(object):
         """)
         controls_layout.addWidget(self.expenses_store_combo)
 
-        # Week navigation
+        # View toggle button
+        self.expenses_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.expenses_view_toggle.setFixedHeight(40)
+        self.expenses_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.expenses_view_toggle.clicked.connect(self.toggle_expenses_view)
+        controls_layout.addWidget(self.expenses_view_toggle)
+
+        # Week/Month navigation
         week_nav_container = QtWidgets.QWidget()
         week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
         week_nav_layout.setSpacing(10)
@@ -1842,9 +1866,9 @@ class Ui_OwnerDialog(object):
 
         # Expenses table
         self.expenses_table = QtWidgets.QTableWidget()
-        self.expenses_table.setColumnCount(6)
+        self.expenses_table.setColumnCount(7)
         self.expenses_table.setHorizontalHeaderLabels([
-            "Date", "Type", "Amount", "Employee", "Store", "Actions"
+            "Date", "Type", "Amount", "Employee", "Store", "Actions", "ID"
         ])
         self.expenses_table.setStyleSheet("""
             QTableWidget {
@@ -1871,7 +1895,7 @@ class Ui_OwnerDialog(object):
             }
         """)
         self.expenses_table.setAlternatingRowColors(True)
-        self.expenses_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.expenses_table.horizontalHeader().setStretchLastSection(True)
         self._set_row_height(self.expenses_table, 44)
         main_layout.addWidget(self.expenses_table)
 
@@ -1879,122 +1903,187 @@ class Ui_OwnerDialog(object):
         self.expenses_total_label = QtWidgets.QLabel()
         self.expenses_total_label.setStyleSheet("""
             QLabel {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
                 color: #2c3e50;
-                padding: 10px;
+                padding: 15px;
                 background-color: #f8f9fa;
                 border-radius: 6px;
             }
         """)
-        main_layout.addWidget(self.expenses_total_label)
+        main_layout.addWidget(self.expenses_total_label, alignment=QtCore.Qt.AlignRight)
 
-        # Initialize current week
-        self.expenses_current_week_start = self.get_week_start_date()
+        # Initialize current date and view mode
+        self.expenses_current_date = QtCore.QDate.currentDate()
+        self.is_expenses_weekly_view = True
         
         # Connect signals
         self.expenses_store_combo.currentIndexChanged.connect(self.load_expenses_history)
-        self.expenses_prev_week_btn.clicked.connect(self.expenses_previous_week)
-        self.expenses_next_week_btn.clicked.connect(self.expenses_next_week)
+        self.expenses_prev_week_btn.clicked.connect(self.expenses_previous_period)
+        self.expenses_next_week_btn.clicked.connect(self.expenses_next_period)
         self.expenses_calendar_btn.clicked.connect(self.expenses_show_calendar)
         self.expenses_refresh_btn.clicked.connect(self.load_expenses_history)
 
-        # Add shadow effect to the page
-        shadow = QtWidgets.QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(15)
-        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
-        shadow.setOffset(0, 0)
-        page.setGraphicsEffect(shadow)
-
         # Initialize the page
         self.populate_expenses_stores()
-        self.update_expenses_week_label()
+        self.update_expenses_period_label()
 
         self.stackedWidget.addWidget(page)
         return page
 
-    def populate_expenses_stores(self):
-        """Populate the expenses store combo box with store names and IDs."""
-        try:
-            print("Attempting to populate expenses stores...")
-            query = "SELECT store_id, store_name FROM Store"
-            results = connect(query, None)
-            
-            if results:
-                print(f"Found {len(results)} stores")
-                self.expenses_store_combo.clear()
-                for store in results:
-                    print(f"Adding store: {store[1]} (ID: {store[0]})")
-                    self.expenses_store_combo.addItem(store[1], store[0])  # Store name and ID
-            else:
-                print("No stores found in database")
-        except Exception as e:
-            print(f"Error populating expenses stores: {e}")
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+    def toggle_expenses_view(self):
+        """Toggle between weekly and monthly expenses view."""
+        self.is_expenses_weekly_view = not self.is_expenses_weekly_view
+        self.expenses_view_toggle.setText("Weekly View" if self.is_expenses_weekly_view else "Monthly View")
+        self.update_expenses_period_label()
+
+    def update_expenses_period_label(self):
+        """Update the expenses period label based on the current view mode."""
+        if self.is_expenses_weekly_view:
+            week_start = self.expenses_current_date.addDays(-self.expenses_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.expenses_week_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.expenses_week_label.setText(self.expenses_current_date.toString('MMMM yyyy'))
+        self.load_expenses_history()
+
+    def expenses_previous_period(self):
+        """Navigate to the previous period (week or month) in expenses view."""
+        if self.is_expenses_weekly_view:
+            self.expenses_current_date = self.expenses_current_date.addDays(-7)
+        else:
+            self.expenses_current_date = self.expenses_current_date.addMonths(-1)
+        self.update_expenses_period_label()
+
+    def expenses_next_period(self):
+        """Navigate to the next period (week or month) in expenses view."""
+        if self.is_expenses_weekly_view:
+            self.expenses_current_date = self.expenses_current_date.addDays(7)
+        else:
+            self.expenses_current_date = self.expenses_current_date.addMonths(1)
+        self.update_expenses_period_label()
+
+    def expenses_show_calendar(self):
+        """Show calendar dialog to select a date for expenses view."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.expenses_current_date)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            self.expenses_current_date = calendar.selectedDate()
+            self.update_expenses_period_label()
 
     def load_expenses_history(self):
-        """Load the expenses history for the selected store and week."""
+        """Load the expenses history for the selected store and period."""
         store_id = self.expenses_store_combo.currentData()
-        if not store_id:
-            print("No store selected")
+        if store_id is None:
             return
 
         try:
-            print(f"Loading expenses history for store {store_id}")
-            week_end = self.expenses_current_week_start.addDays(6)
+            # Calculate start and end dates based on view mode
+            if self.is_expenses_weekly_view:
+                start_date = self.expenses_current_date.addDays(-self.expenses_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.expenses_current_date.year(), self.expenses_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
             
-            query = """
-                SELECT 
-                    e.expense_id,
-                    e.expense_date,
-                    e.expense_type,
-                    e.expense_value,
-                    CONCAT(emp.firstName, ' ', emp.lastName) as employee_name,
-                    s.store_name
-                FROM expenses e
-                JOIN employee emp ON e.employee_id = emp.employee_id
-                JOIN Store s ON e.store_id = s.store_id
-                WHERE e.store_id = %s 
-                AND e.expense_date BETWEEN %s AND %s
-                ORDER BY e.expense_date DESC
-            """
-            data = (
-                store_id,
-                self.expenses_current_week_start.toPyDate(),
-                week_end.toPyDate()
-            )
+            # Modify query based on store selection
+            if store_id == -1:  # All Stores
+                query = """
+                    SELECT 
+                        e.expense_id,
+                        e.expense_date,
+                        e.expense_type,
+                        e.expense_value,
+                        CONCAT(emp.firstName, ' ', emp.lastName) as employee_name,
+                        s.store_name
+                    FROM expenses e
+                    JOIN employee emp ON e.employee_id = emp.employee_id
+                    JOIN Store s ON e.store_id = s.store_id
+                    WHERE e.expense_date BETWEEN %s AND %s
+                    ORDER BY e.expense_date DESC
+                """
+                data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                query = """
+                    SELECT 
+                        e.expense_id,
+                        e.expense_date,
+                        e.expense_type,
+                        e.expense_value,
+                        CONCAT(emp.firstName, ' ', emp.lastName) as employee_name,
+                        s.store_name
+                    FROM expenses e
+                    JOIN employee emp ON e.employee_id = emp.employee_id
+                    JOIN Store s ON e.store_id = s.store_id
+                    WHERE e.store_id = %s 
+                    AND e.expense_date BETWEEN %s AND %s
+                    ORDER BY e.expense_date DESC
+                """
+                data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+
             print(f"Executing query with data: {data}")
             results = connect(query, data)
 
+            # Clear existing table data
+            self.expenses_table.setRowCount(0)
+            total_expenses = 0.0
+
             if results:
                 print(f"Found {len(results)} expense records")
-                self.expenses_table.setRowCount(len(results))
-                total_expenses = 0.0
-                
-                for row, record in enumerate(results):
+                for row_data in results:
+                    row = self.expenses_table.rowCount()
+                    self.expenses_table.insertRow(row)
+
+                    # Store expense ID in the hidden last column
+                    id_item = QtWidgets.QTableWidgetItem(str(row_data[0]))
+                    self.expenses_table.setItem(row, 6, id_item)
+                    
                     # Date
-                    date_item = QtWidgets.QTableWidgetItem(str(record[1]))
+                    date_item = QtWidgets.QTableWidgetItem(str(row_data[1]))
                     date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemIsEditable)
-                    date_item.setData(QtCore.Qt.UserRole, record[0])  # Store expense_id in UserRole
                     self.expenses_table.setItem(row, 0, date_item)
                     
                     # Type
-                    type_item = QtWidgets.QTableWidgetItem(record[2])
+                    type_item = QtWidgets.QTableWidgetItem(row_data[2])
                     self.expenses_table.setItem(row, 1, type_item)
                     
                     # Amount
-                    amount = float(record[3])
+                    amount = float(row_data[3])
                     total_expenses += amount
                     amount_item = QtWidgets.QTableWidgetItem(f"${amount:.2f}")
                     self.expenses_table.setItem(row, 2, amount_item)
                     
                     # Employee
-                    employee_item = QtWidgets.QTableWidgetItem(record[4])
+                    employee_item = QtWidgets.QTableWidgetItem(row_data[4])
                     employee_item.setFlags(employee_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.expenses_table.setItem(row, 3, employee_item)
                     
                     # Store
-                    store_item = QtWidgets.QTableWidgetItem(record[5])
+                    store_item = QtWidgets.QTableWidgetItem(row_data[5])
                     store_item.setFlags(store_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.expenses_table.setItem(row, 4, store_item)
                     
@@ -2053,12 +2142,20 @@ class Ui_OwnerDialog(object):
                     
                     self.expenses_table.setCellWidget(row, 5, actions_widget)
 
-                self.expenses_total_label.setText(f"Total Expenses: ${total_expenses:.2f}")
+                # Hide the ID column
+                self.expenses_table.setColumnHidden(6, True)
+                
+                # Update total expenses label
+                period_type = "Weekly" if self.is_expenses_weekly_view else "Monthly"
+                self.expenses_total_label.setText(f"Total {period_type} Expenses: ${total_expenses:.2f}")
+                
+                # Resize columns to fit content
+                self.expenses_table.resizeColumnsToContents()
             else:
                 print("No expense records found")
-                self.expenses_table.setRowCount(0)
-                self.expenses_total_label.setText("Total Expenses: $0.00")
-
+                period_type = "Weekly" if self.is_expenses_weekly_view else "Monthly"
+                self.expenses_total_label.setText(f"Total {period_type} Expenses: $0.00")
+                
         except Exception as e:
             print(f"Error loading expenses history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load expenses history: {e}")
@@ -2066,51 +2163,82 @@ class Ui_OwnerDialog(object):
     def edit_expense(self, row):
         """Edit an expense record."""
         try:
-            expense_id = self.expenses_table.item(row, 0).data(QtCore.Qt.UserRole)
-            if expense_id is None:
-                raise ValueError("Expense ID not found")
+            expense_id = int(self.expenses_table.item(row, 6).text())
             
-            # Get current values
-            expense_type = self.expenses_table.item(row, 1).text()
-            amount_text = self.expenses_table.item(row, 2).text().replace('$', '')
+            # Create edit dialog
+            dialog = QtWidgets.QDialog()
+            dialog.setWindowTitle("Edit Expense")
+            dialog.setFixedWidth(400)
             
-            # Validate amount
-            try:
-                amount = float(amount_text)
-                if amount <= 0:
-                    raise ValueError("Amount must be greater than 0")
-            except ValueError:
-                raise ValueError("Invalid amount format")
+            layout = QtWidgets.QFormLayout(dialog)
             
-            # Update the expense
-            query = """
-                UPDATE expenses 
-                SET expense_type = %s,
-                    expense_value = %s
-                WHERE expense_id = %s
+            # Input styling
+            input_style = """
+                QLineEdit {
+                    padding: 8px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                }
             """
-            data = (expense_type, amount, expense_id)
-            success = connect(query, data)
             
-            if success:
-                QtWidgets.QMessageBox.information(None, "Success", "Expense updated successfully")
-                self.load_expenses_history()  # Refresh the table
-            else:
-                raise Exception("Failed to update expense")
-                
+            # Create input fields
+            type_input = QtWidgets.QLineEdit(self.expenses_table.item(row, 1).text())
+            type_input.setStyleSheet(input_style)
+            
+            amount_input = QtWidgets.QLineEdit(self.expenses_table.item(row, 2).text().replace('$', ''))
+            amount_input.setStyleSheet(input_style)
+            
+            # Add fields to layout
+            layout.addRow("Type:", type_input)
+            layout.addRow("Amount:", amount_input)
+            
+            # Add buttons
+            buttons = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+            )
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
+            layout.addRow(buttons)
+            
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                try:
+                    # Validate inputs
+                    expense_type = type_input.text().strip()
+                    amount = float(amount_input.text())
+                    
+                    if not expense_type:
+                        raise ValueError("Expense type cannot be empty")
+                    if amount <= 0:
+                        raise ValueError("Amount must be greater than 0")
+                    
+                    # Update expense in database
+                    query = """
+                        UPDATE expenses 
+                        SET expense_type = %s,
+                            expense_value = %s
+                        WHERE expense_id = %s
+                    """
+                    data = (expense_type, amount, expense_id)
+                    success = connect(query, data)
+                    
+                    if success:
+                        QtWidgets.QMessageBox.information(None, "Success", "Expense updated successfully")
+                        self.load_expenses_history()
+                    else:
+                        raise Exception("Failed to update expense")
+                        
+                except ValueError as ve:
+                    QtWidgets.QMessageBox.critical(None, "Error", str(ve))
+                    
         except Exception as e:
-            print(f"Error editing expense: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to edit expense: {e}")
-            # Revert changes in the table
-            self.load_expenses_history()
 
     def delete_expense(self, row):
         """Delete an expense record."""
         try:
-            expense_id = self.expenses_table.item(row, 0).data(QtCore.Qt.UserRole)
-            if expense_id is None:
-                raise ValueError("Expense ID not found")
-                
+            expense_id = int(self.expenses_table.item(row, 6).text())
+            
             reply = QtWidgets.QMessageBox.question(
                 None,
                 "Confirm Delete",
@@ -2129,7 +2257,6 @@ class Ui_OwnerDialog(object):
                 else:
                     raise Exception("Failed to delete expense")
         except Exception as e:
-            print(f"Error deleting expense: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to delete expense: {e}")
 
     def _create_merchandise_history_page(self):
@@ -2463,7 +2590,7 @@ class Ui_OwnerDialog(object):
     def load_merchandise_history(self):
         """Load the merchandise history for the selected store and period."""
         store_id = self.merchandise_store_combo.currentData()
-        if not store_id:
+        if store_id is None:
             return
 
         try:
@@ -2475,26 +2602,48 @@ class Ui_OwnerDialog(object):
                 start_date = QtCore.QDate(self.merchandise_current_date.year(), self.merchandise_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
             
-            query = """
-                SELECT 
-                    m.merchandise_id,
-                    m.merchandise_date,
-                    m.merchandise_type,
-                    m.quantity,
-                    m.unitPrice,
-                    (m.quantity * m.unitPrice) as total,
-                    CONCAT(emp.firstName, ' ', emp.lastName) as employee_name
-                FROM merchandise m
-                JOIN employee emp ON m.employee_id = emp.employee_id
-                WHERE m.store_id = %s 
-                AND DATE(m.merchandise_date) BETWEEN %s AND %s
-                ORDER BY m.merchandise_date DESC
-            """
-            data = (
-                store_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
+            # Modify query based on store selection
+            if store_id == -1:  # All Stores
+                query = """
+                    SELECT 
+                        m.merchandise_id,
+                        m.merchandise_date,
+                        m.merchandise_type,
+                        m.quantity,
+                        m.unitPrice,
+                        (m.quantity * m.unitPrice) as total,
+                        CONCAT(emp.firstName, ' ', emp.lastName) as employee_name
+                    FROM merchandise m
+                    JOIN employee emp ON m.employee_id = emp.employee_id
+                    WHERE DATE(m.merchandise_date) BETWEEN %s AND %s
+                    ORDER BY m.merchandise_date DESC
+                """
+                data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                query = """
+                    SELECT 
+                        m.merchandise_id,
+                        m.merchandise_date,
+                        m.merchandise_type,
+                        m.quantity,
+                        m.unitPrice,
+                        (m.quantity * m.unitPrice) as total,
+                        CONCAT(emp.firstName, ' ', emp.lastName) as employee_name
+                    FROM merchandise m
+                    JOIN employee emp ON m.employee_id = emp.employee_id
+                    WHERE m.store_id = %s 
+                    AND DATE(m.merchandise_date) BETWEEN %s AND %s
+                    ORDER BY m.merchandise_date DESC
+                """
+                data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+
             results = connect(query, data)
 
             # Disconnect the cellChanged signal temporarily
@@ -2930,7 +3079,7 @@ class Ui_OwnerDialog(object):
     def load_close_history(self):
         """Load the close history for the selected store and period."""
         store_id = self.close_store_combo.currentData()
-        if not store_id:
+        if store_id is None:
             return
 
         try:
@@ -2942,36 +3091,56 @@ class Ui_OwnerDialog(object):
                 start_date = QtCore.QDate(self.close_current_date.year(), self.close_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
             
-            # Get store name for the query
-            store_name = self.close_store_combo.currentText()
-            
-            # Modified query to handle cases where close_id might not exist
-            query = """
-                SELECT 
-                    COALESCE(ec.close_id, 0) as close_id,
-                    DATE(ec.timestamp) as date,
-                    CONCAT(ec.firstName, ' ', ec.lastName) as employee_name,
-                    ec.store_name,
-                    COALESCE(ec.credit, 0) as credit,
-                    COALESCE(ec.cash_in_envelope, 0) as cash_in_envelope,
-                    COALESCE(ec.expense, 0) as expense,
-                    COALESCE(ec.credit, 0) + COALESCE(ec.cash_in_envelope, 0) - COALESCE(ec.expense, 0) as total,
-                    ec.comments,
-                    ec.employee_id,
-                    ec.timestamp
-                FROM employee_close ec
-                WHERE ec.store_name = (
-                    SELECT store_name FROM Store WHERE store_id = %s
+            # Modify query based on store selection
+            if store_id == -1:  # All Stores
+                query = """
+                    SELECT 
+                        COALESCE(ec.close_id, 0) as close_id,
+                        DATE(ec.timestamp) as date,
+                        CONCAT(ec.firstName, ' ', ec.lastName) as employee_name,
+                        ec.store_name,
+                        COALESCE(ec.credit, 0) as credit,
+                        COALESCE(ec.cash_in_envelope, 0) as cash_in_envelope,
+                        COALESCE(ec.expense, 0) as expense,
+                        COALESCE(ec.credit, 0) + COALESCE(ec.cash_in_envelope, 0) - COALESCE(ec.expense, 0) as total,
+                        ec.comments,
+                        ec.employee_id,
+                        ec.timestamp
+                    FROM employee_close ec
+                    WHERE DATE(ec.timestamp) BETWEEN %s AND %s
+                    ORDER BY ec.timestamp DESC
+                """
+                data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
                 )
-                AND DATE(ec.timestamp) BETWEEN %s AND %s
-                ORDER BY ec.timestamp DESC
-            """
-            data = (
-                store_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
-            
+            else:
+                query = """
+                    SELECT 
+                        COALESCE(ec.close_id, 0) as close_id,
+                        DATE(ec.timestamp) as date,
+                        CONCAT(ec.firstName, ' ', ec.lastName) as employee_name,
+                        ec.store_name,
+                        COALESCE(ec.credit, 0) as credit,
+                        COALESCE(ec.cash_in_envelope, 0) as cash_in_envelope,
+                        COALESCE(ec.expense, 0) as expense,
+                        COALESCE(ec.credit, 0) + COALESCE(ec.cash_in_envelope, 0) - COALESCE(ec.expense, 0) as total,
+                        ec.comments,
+                        ec.employee_id,
+                        ec.timestamp
+                    FROM employee_close ec
+                    WHERE ec.store_name = (
+                        SELECT store_name FROM Store WHERE store_id = %s
+                    )
+                    AND DATE(ec.timestamp) BETWEEN %s AND %s
+                    ORDER BY ec.timestamp DESC
+                """
+                data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+
             results = connect(query, data)
             
             # Clear existing table data
@@ -4196,9 +4365,9 @@ class Ui_OwnerDialog(object):
 
         # Payroll table
         self.payroll_table = QtWidgets.QTableWidget()
-        self.payroll_table.setColumnCount(7)
+        self.payroll_table.setColumnCount(8)  # Increased from 7 to 8 columns
         self.payroll_table.setHorizontalHeaderLabels([
-            "Date", "Hours Worked", "Hourly Rate", "Hourly Pay", 
+            "Date", "Employee", "Hours Worked", "Hourly Rate", "Hourly Pay", 
             "Register Diff", "Bonus", "Total Pay"
         ])
         self.payroll_table.setStyleSheet("""
@@ -4324,7 +4493,7 @@ class Ui_OwnerDialog(object):
         from decimal import Decimal
 
         employee_id = self.payroll_employee_combo.currentData()
-        if not employee_id:
+        if employee_id is None:
             return
 
         try:
@@ -4336,98 +4505,117 @@ class Ui_OwnerDialog(object):
                 start_date = QtCore.QDate(self.payroll_current_date.year(), self.payroll_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
             
-            # Get employee's hourly rate and bonus percentage
-            query = """
-                SELECT COALESCE(hourlyRate, 15.00) as hourlyRate, 
-                       COALESCE(bonus_percentage, 0) as bonus_percentage 
-                FROM employee 
-                WHERE employee_id = %s
-            """
-            data = (employee_id,)
-            employee_info = connect(query, data)
-            
-            if not employee_info:
-                raise Exception("Could not find employee information")
-            
-            hourly_rate = float(employee_info[0][0])
-            bonus_percentage = float(employee_info[0][1])
-            
-            # Get clock records for the period
-            query = """
-                SELECT 
-                    DATE(clock_in) as date,
-                    ROUND(TIMESTAMPDIFF(MINUTE, clock_in, clock_out) / 60.0, 2) as hours_worked,
-                    COALESCE(reg_in, 0) as reg_in,
-                    COALESCE(reg_out, reg_in, 0) as reg_out
-                FROM clockTable
-                WHERE employee_id = %s 
-                AND DATE(clock_in) BETWEEN %s AND %s
-                AND clock_out IS NOT NULL
-                ORDER BY clock_in
-            """
-            data = (
-                employee_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
+            if employee_id == -1:  # All Employees
+                # Get all employees' hourly rates and bonus percentages
+                query = """
+                    SELECT e.employee_id, 
+                           COALESCE(e.hourlyRate, 15.00) as hourlyRate, 
+                           COALESCE(e.bonus_percentage, 0) as bonus_percentage,
+                           CONCAT(e.firstName, ' ', e.lastName) as employee_name,
+                           c.clock_in,
+                           c.clock_out,
+                           c.reg_in,
+                           c.reg_out
+                    FROM employee e
+                    LEFT JOIN clockTable c ON e.employee_id = c.employee_id
+                    WHERE e.role IN ('employee', 'manager')
+                    AND (c.clock_in IS NULL OR DATE(c.clock_in) BETWEEN %s AND %s)
+                    ORDER BY c.clock_in DESC, e.lastName, e.firstName
+                """
+                data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                # Get single employee's data
+                query = """
+                    SELECT e.employee_id,
+                           COALESCE(e.hourlyRate, 15.00) as hourlyRate,
+                           COALESCE(e.bonus_percentage, 0) as bonus_percentage,
+                           CONCAT(e.firstName, ' ', e.lastName) as employee_name,
+                           c.clock_in,
+                           c.clock_out,
+                           c.reg_in,
+                           c.reg_out
+                    FROM employee e
+                    LEFT JOIN clockTable c ON e.employee_id = c.employee_id
+                    WHERE e.employee_id = %s
+                    AND (c.clock_in IS NULL OR DATE(c.clock_in) BETWEEN %s AND %s)
+                    ORDER BY c.clock_in DESC
+                """
+                data = (
+                    employee_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+
+            print(f"Executing payroll query with data: {data}")
             results = connect(query, data)
-            
+            print(f"Found {len(results) if results else 0} payroll records")
+
             # Clear existing table data
             self.payroll_table.setRowCount(0)
-            
             total_period_pay = Decimal('0.00')
-            
+
             if results:
                 for row_data in results:
+                    # Skip if no clock in/out data
+                    if row_data[4] is None or row_data[5] is None:
+                        continue
+
                     row = self.payroll_table.rowCount()
                     self.payroll_table.insertRow(row)
+
+                    # Calculate hours worked
+                    clock_in = row_data[4]
+                    clock_out = row_data[5]
+                    hours = (clock_out - clock_in).total_seconds() / 3600
                     
-                    date = row_data[0]
-                    hours = float(row_data[1] if row_data[1] is not None else 0)
-                    reg_in = float(row_data[2])
-                    reg_out = float(row_data[3])
-                    
-                    # Skip if no hours worked
-                    if hours <= 0:
-                        continue
-                    
+                    # Get register values
+                    reg_in = float(row_data[6] if row_data[6] is not None else 0)
+                    reg_out = float(row_data[7] if row_data[7] is not None else reg_in)
+
                     # Calculate pays using Decimal for precision
-                    hourly_pay = Decimal(str(hours * hourly_rate)).quantize(Decimal('0.01'))
+                    hourly_rate = Decimal(str(row_data[1])).quantize(Decimal('0.01'))
+                    hourly_pay = (Decimal(str(hours)) * hourly_rate).quantize(Decimal('0.01'))
                     register_diff = Decimal(str(reg_out - reg_in)).quantize(Decimal('0.01'))
                     
                     # Calculate bonus
+                    bonus_percentage = Decimal(str(row_data[2])).quantize(Decimal('0.01'))
                     if register_diff > 0:
-                        bonus_multiplier = Decimal(str(1 + (bonus_percentage / 100))).quantize(Decimal('0.01'))
+                        bonus_multiplier = (Decimal('1') + (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
                         bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
                     else:
                         bonus = Decimal('0.00')
-                    
+
                     total_pay = (hourly_pay + bonus).quantize(Decimal('0.01'))
                     total_period_pay += total_pay
-                    
+
                     # Add items to table
                     items = [
-                        str(date),
-                        f"{hours:.2f}",
-                        f"${hourly_rate:.2f}",
-                        f"${hourly_pay:.2f}",
-                        f"${register_diff:.2f}",
-                        f"${bonus:.2f}",
-                        f"${total_pay:.2f}"
+                        clock_in.strftime("%Y-%m-%d"),  # Date
+                        row_data[3],                    # Employee name
+                        f"{hours:.2f}",                 # Hours worked
+                        f"${hourly_rate:.2f}",         # Hourly rate
+                        f"${hourly_pay:.2f}",          # Hourly pay
+                        f"${register_diff:.2f}",       # Register difference
+                        f"${bonus:.2f}",               # Bonus
+                        f"${total_pay:.2f}"            # Total pay
                     ]
-                    
+
                     for col, item in enumerate(items):
                         table_item = QtWidgets.QTableWidgetItem(item)
                         table_item.setTextAlignment(QtCore.Qt.AlignCenter)
                         self.payroll_table.setItem(row, col, table_item)
-            
+
             # Update total pay label
             period_type = "Weekly" if self.is_payroll_weekly_view else "Monthly"
-            self.total_pay_label.setText(f"Total {period_type} Pay: ${total_period_pay:.2f}")
-            
+            employee_text = "All Employees" if employee_id == -1 else self.payroll_employee_combo.currentText()
+            self.total_pay_label.setText(f"Total {period_type} Pay ({employee_text}): ${total_period_pay:.2f}")
+
             # Resize columns to fit content
             self.payroll_table.resizeColumnsToContents()
-            
+
         except Exception as e:
             print(f"Error loading payroll: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load payroll: {e}")
@@ -5024,7 +5212,7 @@ class Ui_OwnerDialog(object):
         from decimal import Decimal
 
         store_id = self.profit_store_combo.currentData()
-        if not store_id:
+        if store_id is None:
             return
 
         try:
@@ -5273,6 +5461,8 @@ class Ui_OwnerDialog(object):
             
             if results:
                 self.profit_store_combo.clear()
+                # Add "All Stores" option
+                self.profit_store_combo.addItem("All Stores", -1)
                 for store in results:
                     self.profit_store_combo.addItem(store[1], store[0])
         except Exception as e:
@@ -5292,6 +5482,8 @@ class Ui_OwnerDialog(object):
             
             if results:
                 self.payroll_employee_combo.clear()
+                # Add "All Employees" option
+                self.payroll_employee_combo.addItem("All Employees", -1)
                 for employee in results:
                     display_text = f"{employee[1]} {employee[2]} ({employee[3]})"
                     self.payroll_employee_combo.addItem(display_text, employee[0])
@@ -5307,6 +5499,8 @@ class Ui_OwnerDialog(object):
             
             if results:
                 self.close_store_combo.clear()
+                # Add "All Stores" option
+                self.close_store_combo.addItem("All Stores", -1)
                 for store in results:
                     self.close_store_combo.addItem(store[1], store[0])  # Store name and ID
                 # Set the first store as default
@@ -5326,6 +5520,8 @@ class Ui_OwnerDialog(object):
             if results:
                 print(f"Found {len(results)} stores")
                 self.merchandise_store_combo.clear()
+                # Add "All Stores" option
+                self.merchandise_store_combo.addItem("All Stores", -1)
                 for store in results:
                     print(f"Adding store: {store[1]} (ID: {store[0]})")
                     self.merchandise_store_combo.addItem(store[1], store[0])  # Store name and ID
@@ -5653,6 +5849,8 @@ class Ui_OwnerDialog(object):
             
             if results:
                 self.invoice_store_combo.clear()
+                # Add "All Stores" option
+                self.invoice_store_combo.addItem("All Stores", -1)
                 for store in results:
                     self.invoice_store_combo.addItem(store[1], store[0])
         except Exception as e:
@@ -5662,7 +5860,7 @@ class Ui_OwnerDialog(object):
     def load_invoice_history(self):
         """Load the invoice history for the selected store and period."""
         store_id = self.invoice_store_combo.currentData()
-        if not store_id:
+        if store_id is None:
             return
 
         try:
@@ -5674,27 +5872,54 @@ class Ui_OwnerDialog(object):
                 start_date = QtCore.QDate(self.invoice_current_date.year(), self.invoice_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
             
-            query = """
-                SELECT 
-                    invoice_id,
-                    company_name,
-                    amount,
-                    COALESCE(amount_paid, 0) as amount_paid,
-                    (amount - COALESCE(amount_paid, 0)) as amount_due,
-                    recieved_date,
-                    due_date,
-                    paid_status,
-                    payment_date
-                FROM Invoice
-                WHERE store_id = %s 
-                AND recieved_date BETWEEN %s AND %s
-                ORDER BY recieved_date DESC
-            """
-            data = (
-                store_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
+            # Modify query based on store selection
+            if store_id == -1:  # All Stores
+                query = """
+                    SELECT 
+                        invoice_id,
+                        company_name,
+                        amount,
+                        COALESCE(amount_paid, 0) as amount_paid,
+                        (amount - COALESCE(amount_paid, 0)) as amount_due,
+                        recieved_date,
+                        due_date,
+                        paid_status,
+                        payment_date,
+                        s.store_name
+                    FROM Invoice i
+                    JOIN Store s ON i.store_id = s.store_id
+                    WHERE recieved_date BETWEEN %s AND %s
+                    ORDER BY recieved_date DESC
+                """
+                data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                query = """
+                    SELECT 
+                        invoice_id,
+                        company_name,
+                        amount,
+                        COALESCE(amount_paid, 0) as amount_paid,
+                        (amount - COALESCE(amount_paid, 0)) as amount_due,
+                        recieved_date,
+                        due_date,
+                        paid_status,
+                        payment_date,
+                        s.store_name
+                    FROM Invoice i
+                    JOIN Store s ON i.store_id = s.store_id
+                    WHERE i.store_id = %s 
+                    AND recieved_date BETWEEN %s AND %s
+                    ORDER BY recieved_date DESC
+                """
+                data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+
             results = connect(query, data)
             
             # Clear existing table data
@@ -5905,6 +6130,27 @@ class Ui_OwnerDialog(object):
                     
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to edit invoice: {e}")
+
+    def populate_expenses_stores(self):
+        """Populate the expenses store combo box with store names and IDs."""
+        try:
+            print("Attempting to populate expenses stores...")
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                print(f"Found {len(results)} stores")
+                self.expenses_store_combo.clear()
+                # Add "All Stores" option
+                self.expenses_store_combo.addItem("All Stores", -1)
+                for store in results:
+                    print(f"Adding store: {store[1]} (ID: {store[0]})")
+                    self.expenses_store_combo.addItem(store[1], store[0])  # Store name and ID
+            else:
+                print("No stores found in database")
+        except Exception as e:
+            print(f"Error populating expenses stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
 
 
 # -----------------------------------------------------------------------------
