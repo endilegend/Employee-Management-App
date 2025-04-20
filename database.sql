@@ -141,3 +141,25 @@ END//
 DELIMITER ;
 
 
+-- Insert Data
+
+-- Insert 3 stores
+INSERT INTO Store (store_name, location)
+VALUES 
+  ('Downtown Store', '123 Main St'),
+  ('Uptown Store', '456 North Ave'),
+  ('Suburban Store', '789 Suburb Ln');
+
+-- Insert 4 employees
+INSERT INTO employee (firstName, lastName, userName, password, role, bonus_percentage, hourlyRate)
+VALUES
+  ('Rudy', 'Gobert', 'ot', '1', 'employee', 1.0, 15.50),
+  ('Jane', 'Smith', 'jsmith', 'word456', 'employee', 1.0, 16.00),
+  ('Carlos', 'Garcia', 'cgarcia', 'cpass', 'employee', 1.0, 14.75),
+  ('Emily', 'Nguyen', 'enguyen', 'emp789', 'employee', 1.0, 15.25);
+
+-- Insert 2 owners
+INSERT INTO employee (firstName, lastName, userName, password, role, bonus_percentage, hourlyRate)
+VALUES
+  ('Olivia', 'Brown', 'obrown', 'ownerpass1', 'owner', 2.0, 0.00),
+  ('Bronny', 'James', 'o', '1', 'owner', 2.0, 0.00);
