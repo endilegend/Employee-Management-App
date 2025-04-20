@@ -211,6 +211,7 @@ class Ui_OwnerDialog(object):
             ("Employee History", "#2980b9"),
             ("Expenses History", "#d35400"),
             ("Merchandise History", "#2ecc71"),
+            ("Invoice History", "#e67e22"),  # Added Invoice History button
             ("Close History", "#3498db"),
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
@@ -285,12 +286,13 @@ class Ui_OwnerDialog(object):
         self.page_emp_hist = self._create_employee_history_page()
         self.page_exp_hist = self._create_expenses_history_page()
         self.page_merch_hist = self._create_merchandise_history_page()
+        self.page_invoice_hist = self._create_invoice_history_page()  # Added invoice history page
         self.page_close_hist = self._create_close_history_page()
-        self.page_close = self._create_close_page()  # Added close page
-        self.page_gross_profit = self._create_gross_profit_page()  # Use actual gross profit page
-        self.page_payroll = self._create_payroll_page()  # Use new payroll page
+        self.page_close = self._create_close_page()
+        self.page_gross_profit = self._create_gross_profit_page()
+        self.page_payroll = self._create_payroll_page()
         self.page_manage_users = self._create_manage_users_page()
-        self.page_manage_stores = self._create_manage_stores_page()  # Added manage stores page
+        self.page_manage_stores = self._create_manage_stores_page()
 
         mc_layout.addWidget(self.stackedWidget)
         content_layout.addWidget(self.main_content)
@@ -304,12 +306,13 @@ class Ui_OwnerDialog(object):
             "Employee History": self.page_emp_hist,
             "Expenses History": self.page_exp_hist,
             "Merchandise History": self.page_merch_hist,
+            "Invoice History": self.page_invoice_hist,  # Added mapping for invoice history
             "Close History": self.page_close_hist,
-            "Close Register": self.page_close,  # Added close mapping
+            "Close Register": self.page_close,
             "Gross Profit": self.page_gross_profit,
             "Payroll": self.page_payroll,
             "Manage Users": self.page_manage_users,
-            "Manage Stores": self.page_manage_stores,  # Added mapping for manage stores
+            "Manage Stores": self.page_manage_stores,
         }
         for text, btn in self.sidebar_buttons.items():
             btn.clicked.connect(lambda checked, w=mapping[text]: self.stackedWidget.setCurrentWidget(w))
@@ -1484,13 +1487,14 @@ class Ui_OwnerDialog(object):
         try:
             query = """
                 INSERT INTO Invoice 
-                (invoice_id, company_name, amount_due, recieved_date, due_date, paid_status, payment_date, store_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (invoice_id, company_name, amount, amount_paid, recieved_date, due_date, paid_status, payment_date, store_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             data = (
                 invoice_id,
                 company,
                 amount,
+                amount_paid,
                 recievedDate,
                 dueDate,
                 paid_status,
@@ -5330,6 +5334,577 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error populating merchandise stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def _create_invoice_history_page(self):
+        """Create the invoice history page with comprehensive view."""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Main layout with shadow effect
+        main_layout = QtWidgets.QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(25)
+
+        # Title section with icon
+        title_container = QtWidgets.QWidget()
+        title_container.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        title_layout = QtWidgets.QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title with icon
+        title = QtWidgets.QLabel("Invoice History")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-left: 10px;
+            }
+        """)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        main_layout.addWidget(title_container)
+
+        # Controls container
+        controls_container = QtWidgets.QWidget()
+        controls_container.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+                padding: 15px;
+            }
+        """)
+        controls_layout = QtWidgets.QHBoxLayout(controls_container)
+        controls_layout.setSpacing(20)
+
+        # Store selector
+        self.invoice_store_combo = QtWidgets.QComboBox()
+        self.invoice_store_combo.setFixedWidth(250)
+        self.invoice_store_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                background-color: #f8f9fa;
+            }
+            QComboBox:hover {
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+        controls_layout.addWidget(self.invoice_store_combo)
+
+        # View toggle button
+        self.invoice_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.invoice_view_toggle.setFixedHeight(40)
+        self.invoice_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.invoice_view_toggle.clicked.connect(self.toggle_invoice_view)
+        controls_layout.addWidget(self.invoice_view_toggle)
+
+        # Week/Month navigation
+        nav_container = QtWidgets.QWidget()
+        nav_layout = QtWidgets.QHBoxLayout(nav_container)
+        nav_layout.setSpacing(10)
+
+        self.invoice_prev_btn = QtWidgets.QPushButton("←")
+        self.invoice_prev_btn.setFixedSize(40, 40)
+        self.invoice_prev_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        self.invoice_period_label = QtWidgets.QLabel()
+        self.invoice_period_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        """)
+        self.invoice_period_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.invoice_next_btn = QtWidgets.QPushButton("→")
+        self.invoice_next_btn.setFixedSize(40, 40)
+        self.invoice_next_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+
+        nav_layout.addWidget(self.invoice_prev_btn)
+        nav_layout.addWidget(self.invoice_period_label)
+        nav_layout.addWidget(self.invoice_next_btn)
+        controls_layout.addWidget(nav_container)
+
+        # Calendar button
+        self.invoice_calendar_btn = QtWidgets.QPushButton("Select Date")
+        self.invoice_calendar_btn.setFixedHeight(40)
+        self.invoice_calendar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        controls_layout.addWidget(self.invoice_calendar_btn)
+
+        # Refresh button
+        self.invoice_refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.invoice_refresh_btn.setFixedHeight(40)
+        self.invoice_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        controls_layout.addWidget(self.invoice_refresh_btn)
+
+        main_layout.addWidget(controls_container)
+
+        # Invoice table
+        self.invoice_table = QtWidgets.QTableWidget()
+        self.invoice_table.setColumnCount(10)  # Updated column count
+        self.invoice_table.setHorizontalHeaderLabels([
+            "Invoice ID", "Company", "Original Amount", "Amount Paid", "Amount Due", "Received Date", 
+            "Due Date", "Status", "Payment Date", "Actions"
+        ])
+        self.invoice_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: #e0e0e0;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 12px;
+                border: none;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+        """)
+        self.invoice_table.setAlternatingRowColors(True)
+        self.invoice_table.horizontalHeader().setStretchLastSection(True)
+        self._set_row_height(self.invoice_table, 44)
+        main_layout.addWidget(self.invoice_table)
+
+        # Total amount label
+        self.total_invoice_label = QtWidgets.QLabel()
+        self.total_invoice_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+            }
+        """)
+        main_layout.addWidget(self.total_invoice_label, alignment=QtCore.Qt.AlignRight)
+
+        # Initialize current date and view mode
+        self.invoice_current_date = QtCore.QDate.currentDate()
+        self.is_invoice_weekly_view = True
+        
+        # Connect signals
+        self.invoice_store_combo.currentIndexChanged.connect(self.load_invoice_history)
+        self.invoice_prev_btn.clicked.connect(self.invoice_previous_period)
+        self.invoice_next_btn.clicked.connect(self.invoice_next_period)
+        self.invoice_calendar_btn.clicked.connect(self.invoice_show_calendar)
+        self.invoice_refresh_btn.clicked.connect(self.load_invoice_history)
+
+        # Initialize the page
+        self.populate_invoice_stores()
+        self.update_invoice_period_label()
+
+        self.stackedWidget.addWidget(page)
+        return page
+
+    def toggle_invoice_view(self):
+        """Toggle between weekly and monthly invoice view."""
+        self.is_invoice_weekly_view = not self.is_invoice_weekly_view
+        self.invoice_view_toggle.setText("Weekly View" if self.is_invoice_weekly_view else "Monthly View")
+        self.update_invoice_period_label()
+
+    def update_invoice_period_label(self):
+        """Update the invoice period label based on the current view mode."""
+        if self.is_invoice_weekly_view:
+            week_start = self.invoice_current_date.addDays(-self.invoice_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.invoice_period_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.invoice_period_label.setText(self.invoice_current_date.toString('MMMM yyyy'))
+        self.load_invoice_history()
+
+    def invoice_previous_period(self):
+        """Navigate to the previous period (week or month) in invoice view."""
+        if self.is_invoice_weekly_view:
+            self.invoice_current_date = self.invoice_current_date.addDays(-7)
+        else:
+            self.invoice_current_date = self.invoice_current_date.addMonths(-1)
+        self.update_invoice_period_label()
+
+    def invoice_next_period(self):
+        """Navigate to the next period (week or month) in invoice view."""
+        if self.is_invoice_weekly_view:
+            self.invoice_current_date = self.invoice_current_date.addDays(7)
+        else:
+            self.invoice_current_date = self.invoice_current_date.addMonths(1)
+        self.update_invoice_period_label()
+
+    def invoice_show_calendar(self):
+        """Show calendar dialog to select a date for invoice view."""
+        calendar = QtWidgets.QCalendarWidget()
+        calendar.setSelectedDate(self.invoice_current_date)
+        
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Select Date")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            self.invoice_current_date = calendar.selectedDate()
+            self.update_invoice_period_label()
+
+    def populate_invoice_stores(self):
+        """Populate the invoice store combo box with store names."""
+        try:
+            query = "SELECT store_id, store_name FROM Store ORDER BY store_name"
+            results = connect(query, None)
+            
+            if results:
+                self.invoice_store_combo.clear()
+                for store in results:
+                    self.invoice_store_combo.addItem(store[1], store[0])
+        except Exception as e:
+            print(f"Error populating invoice stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def load_invoice_history(self):
+        """Load the invoice history for the selected store and period."""
+        store_id = self.invoice_store_combo.currentData()
+        if not store_id:
+            return
+
+        try:
+            # Calculate start and end dates based on view mode
+            if self.is_invoice_weekly_view:
+                start_date = self.invoice_current_date.addDays(-self.invoice_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.invoice_current_date.year(), self.invoice_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
+            
+            query = """
+                SELECT 
+                    invoice_id,
+                    company_name,
+                    amount,
+                    COALESCE(amount_paid, 0) as amount_paid,
+                    (amount - COALESCE(amount_paid, 0)) as amount_due,
+                    recieved_date,
+                    due_date,
+                    paid_status,
+                    payment_date
+                FROM Invoice
+                WHERE store_id = %s 
+                AND recieved_date BETWEEN %s AND %s
+                ORDER BY recieved_date DESC
+            """
+            data = (
+                store_id,
+                start_date.toPyDate(),
+                end_date.toPyDate()
+            )
+            results = connect(query, data)
+            
+            # Clear existing table data
+            self.invoice_table.setRowCount(0)
+            
+            total_original = 0.0
+            total_paid = 0.0
+            total_due = 0.0
+            
+            if results:
+                for row_data in results:
+                    row = self.invoice_table.rowCount()
+                    self.invoice_table.insertRow(row)
+                    
+                    # Get amounts from query results
+                    original_amount = float(row_data[2])
+                    amount_paid = float(row_data[3])
+                    amount_due = float(row_data[4])
+                    
+                    # Update totals
+                    total_original += original_amount
+                    total_paid += amount_paid
+                    total_due += amount_due
+                    
+                    # Add items to table
+                    items = [
+                        str(row_data[0]),  # Invoice ID
+                        row_data[1],       # Company
+                        f"${original_amount:.2f}",  # Original Amount
+                        f"${amount_paid:.2f}",  # Amount Paid
+                        f"${amount_due:.2f}",  # Amount Due
+                        row_data[5].strftime("%Y-%m-%d"),  # Received Date
+                        row_data[6].strftime("%Y-%m-%d"),  # Due Date
+                        row_data[7].title(),  # Status
+                        row_data[8].strftime("%Y-%m-%d") if row_data[8] else "-"  # Payment Date
+                    ]
+                    
+                    for col, item in enumerate(items):
+                        table_item = QtWidgets.QTableWidgetItem(item)
+                        table_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                        
+                        # Color amount due based on value
+                        if col == 4:  # Amount Due column
+                            if amount_due <= 0:
+                                table_item.setForeground(QtGui.QColor("#27ae60"))  # Green for paid
+                            else:
+                                table_item.setForeground(QtGui.QColor("#c0392b"))  # Red for unpaid
+                                
+                        self.invoice_table.setItem(row, col, table_item)
+                    
+                    # Add edit button
+                    edit_btn = QtWidgets.QPushButton("Edit")
+                    edit_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #3498db;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 5px 10px;
+                            font-size: 12px;
+                        }
+                        QPushButton:hover {
+                            background-color: #2980b9;
+                        }
+                    """)
+                    edit_btn.clicked.connect(lambda checked, r=row: self.edit_invoice(r))
+                    self.invoice_table.setCellWidget(row, 9, edit_btn)
+            
+            # Update total amount label with all three totals
+            period_type = "Weekly" if self.is_invoice_weekly_view else "Monthly"
+            self.total_invoice_label.setText(
+                f"Total {period_type} Invoices: Original: ${total_original:.2f} | "
+                f"Paid: ${total_paid:.2f} | Due: ${total_due:.2f}"
+            )
+            
+            # Resize columns to fit content
+            self.invoice_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error loading invoice history: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load invoice history: {e}")
+
+    def edit_invoice(self, row):
+        """Edit an invoice record."""
+        try:
+            invoice_id = int(self.invoice_table.item(row, 0).text())
+            
+            # Create edit dialog
+            dialog = QtWidgets.QDialog()
+            dialog.setWindowTitle("Edit Invoice")
+            dialog.setFixedWidth(400)
+            
+            layout = QtWidgets.QFormLayout(dialog)
+            
+            # Input styling
+            input_style = """
+                QLineEdit, QComboBox {
+                    padding: 8px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                }
+            """
+            
+            # Create input fields
+            company_input = QtWidgets.QLineEdit(self.invoice_table.item(row, 1).text())
+            company_input.setStyleSheet(input_style)
+            
+            original_amount_input = QtWidgets.QLineEdit(self.invoice_table.item(row, 2).text().replace('$', ''))
+            original_amount_input.setStyleSheet(input_style)
+            
+            amount_paid_input = QtWidgets.QLineEdit(self.invoice_table.item(row, 3).text().replace('$', ''))
+            amount_paid_input.setStyleSheet(input_style)
+            
+            status_combo = QtWidgets.QComboBox()
+            status_combo.addItems(["paid", "unpaid"])
+            status_combo.setCurrentText(self.invoice_table.item(row, 7).text().lower())
+            status_combo.setStyleSheet(input_style)
+            
+            # Add fields to layout
+            layout.addRow("Company:", company_input)
+            layout.addRow("Original Amount:", original_amount_input)
+            layout.addRow("Amount Paid:", amount_paid_input)
+            layout.addRow("Status:", status_combo)
+            
+            # Add calculated amount due label that updates when amounts change
+            amount_due_label = QtWidgets.QLabel()
+            amount_due_label.setStyleSheet("font-weight: bold;")
+            layout.addRow("Amount Due:", amount_due_label)
+            
+            def update_amount_due():
+                try:
+                    original = float(original_amount_input.text())
+                    paid = float(amount_paid_input.text())
+                    due = original - paid
+                    amount_due_label.setText(f"${due:.2f}")
+                    # Update color based on amount
+                    if due <= 0:
+                        amount_due_label.setStyleSheet("font-weight: bold; color: #27ae60;")
+                        status_combo.setCurrentText("paid")
+                    else:
+                        amount_due_label.setStyleSheet("font-weight: bold; color: #c0392b;")
+                        status_combo.setCurrentText("unpaid")
+                except ValueError:
+                    amount_due_label.setText("Invalid input")
+                    amount_due_label.setStyleSheet("font-weight: bold; color: #e74c3c;")
+            
+            # Connect signals for real-time updates
+            original_amount_input.textChanged.connect(update_amount_due)
+            amount_paid_input.textChanged.connect(update_amount_due)
+            
+            # Initialize amount due display
+            update_amount_due()
+            
+            # Add buttons
+            buttons = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+            )
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
+            layout.addRow(buttons)
+            
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                try:
+                    # Validate inputs
+                    original_amount = float(original_amount_input.text())
+                    amount_paid = float(amount_paid_input.text())
+                    
+                    if original_amount < 0 or amount_paid < 0:
+                        raise ValueError("Amounts cannot be negative")
+                    
+                    if amount_paid > original_amount:
+                        raise ValueError("Amount paid cannot exceed original amount")
+                    
+                    # Update invoice in database
+                    query = """
+                        UPDATE Invoice 
+                        SET company_name = %s,
+                            amount = %s,
+                            amount_paid = %s,
+                            paid_status = %s,
+                            payment_date = CASE 
+                                WHEN %s = 'paid' OR %s >= %s THEN CURDATE()
+                                ELSE NULL
+                            END
+                        WHERE invoice_id = %s
+                    """
+                    data = (
+                        company_input.text(),
+                        original_amount,
+                        amount_paid,
+                        status_combo.currentText(),
+                        status_combo.currentText(),
+                        amount_paid,
+                        original_amount,
+                        invoice_id
+                    )
+                    success = connect(query, data)
+                    
+                    if success:
+                        QtWidgets.QMessageBox.information(None, "Success", "Invoice updated successfully")
+                        self.load_invoice_history()
+                    else:
+                        raise Exception("Failed to update invoice")
+                        
+                except ValueError as ve:
+                    QtWidgets.QMessageBox.critical(None, "Error", str(ve))
+                    
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to edit invoice: {e}")
 
 
 # -----------------------------------------------------------------------------

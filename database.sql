@@ -74,12 +74,13 @@ CREATE TABLE IF NOT EXISTS clockTable (
 CREATE TABLE IF NOT EXISTS Invoice (
                                        invoice_id INT AUTO_INCREMENT PRIMARY KEY,
                                        company_name VARCHAR(255),
-                                       amount_due DECIMAL(10,2),
+                                       amount DECIMAL(10,2),
                                        due_date DATE,
                                        recieved_date DATE,
                                        paid_status ENUM('paid', 'unpaid'),
                                        payment_date DATE,
                                        store_id INT,
+                                       amount_paid DECIMAL(10,2),
                                        FOREIGN KEY (store_id) REFERENCES Store(store_id)
 );
 CREATE TABLE IF NOT EXISTS Payroll (
@@ -110,6 +111,30 @@ BEGIN
     IF NEW.bonus_percentage < 0 THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Bonus percentage cannot be negative';
+    END IF;
+END//
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE TRIGGER before_invoice_insert 
+BEFORE INSERT ON Invoice
+FOR EACH ROW
+BEGIN
+    IF NEW.amount_paid > NEW.amount THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Amount paid cannot be greater than total amount';
+    END IF;
+END//
+
+CREATE TRIGGER before_invoice_update
+BEFORE UPDATE ON Invoice
+FOR EACH ROW
+BEGIN
+    IF NEW.amount_paid > NEW.amount THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Amount paid cannot be greater than total amount';
     END IF;
 END//
 
