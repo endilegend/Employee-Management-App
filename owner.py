@@ -2332,7 +2332,7 @@ class Ui_OwnerDialog(object):
                     actions_layout.setSpacing(8)
                     
                     edit_btn = QtWidgets.QPushButton("Edit")
-                    edit_btn.setMinimumSize(85, 32)
+                    edit_btn.setMinimumSize(70, 28)
                     edit_btn.setStyleSheet("""
                         QPushButton {
                             background-color: #3498db;
@@ -3131,6 +3131,38 @@ class Ui_OwnerDialog(object):
         self.close_table.horizontalHeader().setStretchLastSection(True)
         main_layout.addWidget(self.close_table)
 
+        vh = self.close_table.verticalHeader()
+        vh.setVisible(False)              # no “1, 2, 3…” column
+        vh.setDefaultSectionSize(48)      # 32‑px button + ~16‑px margins
+
+        # 2) Center the header text
+        hh = self.close_table.horizontalHeader()
+        hh.setDefaultAlignment(QtCore.Qt.AlignCenter)
+
+        # 3) Tell Qt exactly how each column should resize
+        for col in range(self.close_table.columnCount()):
+            mode = QtWidgets.QHeaderView.Stretch          # sensible default
+            if col in (3, 4, 5):                          # Credit / Cash / Expense
+                mode = QtWidgets.QHeaderView.ResizeToContents
+            elif col == 8:                                # Actions (Save btns)
+                mode = QtWidgets.QHeaderView.Fixed
+            hh.setSectionResizeMode(col, mode)
+
+        self.close_table.setColumnWidth(8, 130)  
+
+        # --- make the Actions column and rows big enough ---
+        header = self.close_table.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)           
+        header.setSectionResizeMode(8, QtWidgets.QHeaderView.ResizeToContents)  
+        self.close_table.setColumnWidth(8, 130)                              # 2×85‑px buttons + padding
+
+        # give every row a fixed, taller height so the buttons aren’t clipped
+        self.close_table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Fixed
+        )
+        self.close_table.verticalHeader().setDefaultSectionSize(40)         
+
+        
         # Initialize current week
         self.close_current_week_start = self.get_week_start_date()
         self.update_close_week_label()
@@ -3314,7 +3346,7 @@ class Ui_OwnerDialog(object):
                     actions_layout.setSpacing(8)
                     
                     edit_btn = QtWidgets.QPushButton("Save")
-                    edit_btn.setMinimumSize(85, 32)
+                    edit_btn.setMinimumSize(70, 28)
                     edit_btn.setStyleSheet("""
                         QPushButton {
                             background-color: #3498db;
@@ -4866,26 +4898,6 @@ class Ui_OwnerDialog(object):
         self.update_store_btn.setEnabled(False)
         buttons_layout.addWidget(self.update_store_btn)
 
-        # Delete button
-        self.delete_store_btn = QtWidgets.QPushButton("Delete Store")
-        self.delete_store_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        self.delete_store_btn.clicked.connect(self.delete_store)
-        self.delete_store_btn.setEnabled(False)
-        buttons_layout.addWidget(self.delete_store_btn)
-
         form_layout.addRow(buttons_container)
         content_layout.addWidget(form_container)
         main_layout.addWidget(content_container)
@@ -4929,14 +4941,12 @@ class Ui_OwnerDialog(object):
                     self.store_location_input.setText(store[1])
                     
                     self.update_store_btn.setEnabled(True)
-                    self.delete_store_btn.setEnabled(True)
             except Exception as e:
                 QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load store details: {e}")
         else:
             self.store_name_input.clear()
             self.store_location_input.clear()
             self.update_store_btn.setEnabled(False)
-            self.delete_store_btn.setEnabled(False)
 
     def add_store(self):
         """Add a new store to the database."""
@@ -5000,52 +5010,6 @@ class Ui_OwnerDialog(object):
                 
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", str(e))
-
-    def delete_store(self):
-        """Delete the selected store."""
-        selected_items = self.store_list.selectedItems()
-        if not selected_items:
-            return
-            
-        store_id = selected_items[0].data(QtCore.Qt.UserRole)
-        store_name = selected_items[0].text()
-        
-        reply = QtWidgets.QMessageBox.question(
-            None,
-            "Confirm Deletion",
-            f"Are you sure you want to delete the store '{store_name}'?\nThis will also delete all associated records.",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No
-        )
-        
-        if reply == QtWidgets.QMessageBox.Yes:
-            try:
-                # Delete associated records first
-                tables = ["Invoice", "expenses", "merchandise", "clockTable", "employee_close"]
-                for table in tables:
-                    query = f"DELETE FROM {table} WHERE store_id = %s"
-                    connect(query, (store_id,))
-                
-                # Delete the store
-                query = "DELETE FROM Store WHERE store_id = %s"
-                success = connect(query, (store_id,))
-                
-                if success:
-                    QtWidgets.QMessageBox.information(None, "Success", "Store deleted successfully")
-                    self.store_name_input.clear()
-                    self.store_location_input.clear()
-                    self.load_stores()
-                    
-                    # Refresh store combo boxes throughout the application
-                    self.populate_stores()
-                    self.populate_expenses_stores()
-                    self.populate_merchandise_stores()
-                    self.populate_close_stores()
-                else:
-                    raise Exception("Failed to delete store")
-                    
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(None, "Error", str(e))
 
     def _create_gross_profit_page(self):
         """Create the gross profit page with store selection and profit details."""
@@ -5566,6 +5530,7 @@ class Ui_OwnerDialog(object):
         
         dialog.exec_()
 
+
 # -----------------------------------------------------------------------------
 # Stand‑alone test
 # -----------------------------------------------------------------------------
@@ -5580,3 +5545,4 @@ if __name__ == "__main__":
 
     Dialog.show()
     sys.exit(app.exec_())
+
