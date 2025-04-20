@@ -3003,17 +3003,36 @@ class Ui_OwnerDialog(object):
                 width: 30px;
             }
         """)
-        self.populate_close_stores()
         controls_layout.addWidget(self.close_store_combo)
 
-        # Week navigation
-        week_nav_container = QtWidgets.QWidget()
-        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
-        week_nav_layout.setSpacing(10)
+        # View toggle button
+        self.close_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.close_view_toggle.setFixedHeight(40)
+        self.close_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.close_view_toggle.clicked.connect(self.toggle_close_view)
+        controls_layout.addWidget(self.close_view_toggle)
 
-        self.close_prev_week_btn = QtWidgets.QPushButton("←")
-        self.close_prev_week_btn.setFixedSize(40, 40)
-        self.close_prev_week_btn.setStyleSheet("""
+        # Week/Month navigation
+        nav_container = QtWidgets.QWidget()
+        nav_layout = QtWidgets.QHBoxLayout(nav_container)
+        nav_layout.setSpacing(10)
+
+        self.close_prev_btn = QtWidgets.QPushButton("←")
+        self.close_prev_btn.setFixedSize(40, 40)
+        self.close_prev_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -3027,17 +3046,17 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        self.close_week_label = QtWidgets.QLabel()
-        self.close_week_label.setStyleSheet("""
+        self.close_period_label = QtWidgets.QLabel()
+        self.close_period_label.setStyleSheet("""
             font-size: 14px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        self.close_week_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.close_period_label.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.close_next_week_btn = QtWidgets.QPushButton("→")
-        self.close_next_week_btn.setFixedSize(40, 40)
-        self.close_next_week_btn.setStyleSheet("""
+        self.close_next_btn = QtWidgets.QPushButton("→")
+        self.close_next_btn.setFixedSize(40, 40)
+        self.close_next_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -3051,10 +3070,10 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        week_nav_layout.addWidget(self.close_prev_week_btn)
-        week_nav_layout.addWidget(self.close_week_label)
-        week_nav_layout.addWidget(self.close_next_week_btn)
-        controls_layout.addWidget(week_nav_container)
+        nav_layout.addWidget(self.close_prev_btn)
+        nav_layout.addWidget(self.close_period_label)
+        nav_layout.addWidget(self.close_next_btn)
+        controls_layout.addWidget(nav_container)
 
         # Calendar button
         self.close_calendar_btn = QtWidgets.QPushButton("Select Date")
@@ -3137,11 +3156,11 @@ class Ui_OwnerDialog(object):
         vh.setVisible(False)              # no "1, 2, 3…" column
         vh.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
-        # 2) Center the header text
+        # Center the header text
         hh = self.close_table.horizontalHeader()
         hh.setDefaultAlignment(QtCore.Qt.AlignCenter)
 
-        # 3) Tell Qt exactly how each column should resize
+        # Tell Qt exactly how each column should resize
         for col in range(self.close_table.columnCount()):
             mode = QtWidgets.QHeaderView.Stretch          # sensible default
             if col in (3, 4, 5):                          # Credit / Cash / Expense
@@ -3150,68 +3169,62 @@ class Ui_OwnerDialog(object):
                 mode = QtWidgets.QHeaderView.ResizeToContents
             hh.setSectionResizeMode(col, mode)
 
-     
-        
-        # Initialize current week
-        self.close_current_week_start = self.get_week_start_date()
-        self.update_close_week_label()
+        # Initialize current date and view mode
+        self.close_current_date = QtCore.QDate.currentDate()
+        self.is_close_weekly_view = True
         
         # Connect signals
         self.close_store_combo.currentIndexChanged.connect(self.load_close_history)
-        self.close_prev_week_btn.clicked.connect(self.close_previous_week)
-        self.close_next_week_btn.clicked.connect(self.close_next_week)
+        self.close_prev_btn.clicked.connect(self.close_previous_period)
+        self.close_next_btn.clicked.connect(self.close_next_period)
         self.close_calendar_btn.clicked.connect(self.close_show_calendar)
         self.close_refresh_btn.clicked.connect(self.load_close_history)
 
-        # Add shadow effect to the page
-        shadow = QtWidgets.QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(15)
-        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
-        shadow.setOffset(0, 0)
-        page.setGraphicsEffect(shadow)
+        # Initialize the page
+        self.populate_close_stores()
+        self.update_close_period_label()
 
         self.stackedWidget.addWidget(page)
         return page
 
-    def populate_close_stores(self):
-        """Populate the close history store combo box with store names and IDs."""
-        try:
-            query = "SELECT store_id, store_name FROM Store"
-            results = connect(query, None)
-            
-            if results:
-                self.close_store_combo.clear()
-                for store in results:
-                    self.close_store_combo.addItem(store[1], store[0])  # Store name and ID
-                # Set the first store as default
-                if results:
-                    self.close_store_combo.setCurrentIndex(0)
-        except Exception as e:
-            print(f"Error populating close stores: {e}")
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+    def toggle_close_view(self):
+        """Toggle between weekly and monthly close history view."""
+        self.is_close_weekly_view = not self.is_close_weekly_view
+        self.close_view_toggle.setText("Weekly View" if self.is_close_weekly_view else "Monthly View")
+        self.update_close_period_label()
 
-    def update_close_week_label(self):
-        """Update the close history week label with the current week range."""
-        week_end = self.close_current_week_start.addDays(6)
-        self.close_week_label.setText(
-            f"{self.close_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
-        )
+    def update_close_period_label(self):
+        """Update the close period label based on the current view mode."""
+        if self.is_close_weekly_view:
+            week_start = self.close_current_date.addDays(-self.close_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.close_period_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.close_period_label.setText(self.close_current_date.toString('MMMM yyyy'))
         self.load_close_history()
 
-    def close_previous_week(self):
-        """Navigate to the previous week in close history."""
-        self.close_current_week_start = self.close_current_week_start.addDays(-7)
-        self.update_close_week_label()
+    def close_previous_period(self):
+        """Navigate to the previous period (week or month) in close history."""
+        if self.is_close_weekly_view:
+            self.close_current_date = self.close_current_date.addDays(-7)
+        else:
+            self.close_current_date = self.close_current_date.addMonths(-1)
+        self.update_close_period_label()
 
-    def close_next_week(self):
-        """Navigate to the next week in close history."""
-        self.close_current_week_start = self.close_current_week_start.addDays(7)
-        self.update_close_week_label()
+    def close_next_period(self):
+        """Navigate to the next period (week or month) in close history."""
+        if self.is_close_weekly_view:
+            self.close_current_date = self.close_current_date.addDays(7)
+        else:
+            self.close_current_date = self.close_current_date.addMonths(1)
+        self.update_close_period_label()
 
     def close_show_calendar(self):
         """Show calendar dialog to select a date for close history."""
         calendar = QtWidgets.QCalendarWidget()
-        calendar.setSelectedDate(self.close_current_week_start)
+        calendar.setSelectedDate(self.close_current_date)
         
         dialog = QtWidgets.QDialog()
         dialog.setWindowTitle("Select Date")
@@ -3228,18 +3241,26 @@ class Ui_OwnerDialog(object):
         layout.addWidget(buttons)
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            selected_date = calendar.selectedDate()
-            self.close_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
-            self.update_close_week_label()
+            self.close_current_date = calendar.selectedDate()
+            self.update_close_period_label()
 
     def load_close_history(self):
-        """Load the close history for the selected store and week."""
+        """Load the close history for the selected store and period."""
         store_id = self.close_store_combo.currentData()
         if not store_id:
             return
 
         try:
-            week_end = self.close_current_week_start.addDays(6)
+            # Calculate start and end dates based on view mode
+            if self.is_close_weekly_view:
+                start_date = self.close_current_date.addDays(-self.close_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.close_current_date.year(), self.close_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
+            
+            # Get store name for the query
+            store_name = self.close_store_combo.currentText()
             
             # Modified query to handle cases where close_id might not exist
             query = """
@@ -3264,8 +3285,8 @@ class Ui_OwnerDialog(object):
             """
             data = (
                 store_id,
-                self.close_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
             
             results = connect(query, data)
@@ -3302,19 +3323,19 @@ class Ui_OwnerDialog(object):
                     # Credit (editable)
                     credit = float(row_data[4]) if row_data[4] is not None else 0.0
                     credit_item = QtWidgets.QTableWidgetItem(f"${credit:.2f}")
-                    credit_item.setFlags(credit_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
+                    credit_item.setFlags(credit_item.flags() | QtCore.Qt.ItemIsEditable)
                     self.close_table.setItem(row, 3, credit_item)
                     
                     # Cash in envelope (editable)
                     cash = float(row_data[5]) if row_data[5] is not None else 0.0
                     cash_item = QtWidgets.QTableWidgetItem(f"${cash:.2f}")
-                    cash_item.setFlags(cash_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
+                    cash_item.setFlags(cash_item.flags() | QtCore.Qt.ItemIsEditable)
                     self.close_table.setItem(row, 4, cash_item)
                     
                     # Expense (editable)
                     expense = float(row_data[6]) if row_data[6] is not None else 0.0
                     expense_item = QtWidgets.QTableWidgetItem(f"${expense:.2f}")
-                    expense_item.setFlags(expense_item.flags() | QtCore.Qt.ItemIsEditable)  # Explicitly make editable
+                    expense_item.setFlags(expense_item.flags() | QtCore.Qt.ItemIsEditable)
                     self.close_table.setItem(row, 5, expense_item)
                     
                     # Total (non-editable)
@@ -3351,14 +3372,6 @@ class Ui_OwnerDialog(object):
                     if self.close_table.rowHeight(row) < btn_h:
                         self.close_table.setRowHeight(row, btn_h)
 
-                    # Make sure the table has enough columns for the Edit button
-                    if self.close_table.columnCount() < 9:
-                        self.close_table.setColumnCount(9)
-                        self.close_table.setHorizontalHeaderLabels([
-                            "Date", "Employee", "Store", "Credit", "Cash in Envelope", 
-                            "Expense", "Total", "Comments", "Actions"
-                        ])
-            
             # Resize columns to fit content
             self.close_table.resizeColumnsToContents()
 
@@ -5602,6 +5615,23 @@ class Ui_OwnerDialog(object):
         except Exception as e:
             print(f"Error populating payroll employees: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employees: {e}")
+
+    def populate_close_stores(self):
+        """Populate the close history store combo box with store names and IDs."""
+        try:
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                self.close_store_combo.clear()
+                for store in results:
+                    self.close_store_combo.addItem(store[1], store[0])  # Store name and ID
+                # Set the first store as default
+                if results:
+                    self.close_store_combo.setCurrentIndex(0)
+        except Exception as e:
+            print(f"Error populating close stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
 
 
 # -----------------------------------------------------------------------------

@@ -574,7 +574,7 @@ class Ui_Dialog(object):
             return
 
         # Calculate hours worked and wages
-        current_time = datetime.now()
+        current_time = datetime.now(miami_tz)  
         time_diff = current_time - clock_in_time
         hours_worked = Decimal(str(time_diff.total_seconds() / 3600)).quantize(Decimal('0.01'))  # Convert to hours
         
