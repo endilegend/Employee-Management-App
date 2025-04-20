@@ -5224,72 +5224,141 @@ class Ui_OwnerDialog(object):
                 start_date = QtCore.QDate(self.profit_current_date.year(), self.profit_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
             
-            # Get store name for the query
-            store_name = self.profit_store_combo.currentText()
-            
             # Get daily data from employee_close table
-            query = """
-                SELECT 
-                    DATE(timestamp) as date,
-                    COALESCE(cash_in_envelope, 0) as cash,
-                    COALESCE(credit, 0) as credit,
-                    COALESCE(expense, 0) as expenses
-                FROM employee_close
-                WHERE store_name = %s 
-                AND DATE(timestamp) BETWEEN %s AND %s
-                ORDER BY date
-            """
-            data = (
-                store_name,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
-            close_results = connect(query, data)
+            if store_id == -1:  # All Stores
+                close_query = """
+                    SELECT 
+                        DATE(timestamp) as date,
+                        store_name,
+                        COALESCE(SUM(cash_in_envelope), 0) as cash,
+                        COALESCE(SUM(credit), 0) as credit,
+                        COALESCE(SUM(expense), 0) as expenses
+                    FROM employee_close
+                    WHERE DATE(timestamp) BETWEEN %s AND %s
+                    GROUP BY DATE(timestamp), store_name
+                    ORDER BY date DESC, store_name
+                """
+                close_data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                close_query = """
+                    SELECT 
+                        DATE(timestamp) as date,
+                        store_name,
+                        COALESCE(SUM(cash_in_envelope), 0) as cash,
+                        COALESCE(SUM(credit), 0) as credit,
+                        COALESCE(SUM(expense), 0) as expenses
+                    FROM employee_close
+                    WHERE store_name = (SELECT store_name FROM Store WHERE store_id = %s)
+                    AND DATE(timestamp) BETWEEN %s AND %s
+                    GROUP BY DATE(timestamp), store_name
+                    ORDER BY date DESC
+                """
+                close_data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            
+            close_results = connect(close_query, close_data)
             
             # Get merchandise data
-            query = """
-                SELECT 
-                    DATE(merchandise_date) as date,
-                    SUM(quantity * unitPrice) as total
-                FROM merchandise
-                WHERE store_id = %s 
-                AND DATE(merchandise_date) BETWEEN %s AND %s
-                GROUP BY DATE(merchandise_date)
-            """
-            data = (
-                store_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
-            merch_results = connect(query, data)
+            if store_id == -1:
+                merch_query = """
+                    SELECT 
+                        DATE(m.merchandise_date) as date,
+                        s.store_name,
+                        COALESCE(SUM(m.quantity * m.unitPrice), 0) as total
+                    FROM merchandise m
+                    JOIN Store s ON m.store_id = s.store_id
+                    WHERE DATE(m.merchandise_date) BETWEEN %s AND %s
+                    GROUP BY DATE(m.merchandise_date), s.store_name
+                """
+                merch_data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                merch_query = """
+                    SELECT 
+                        DATE(m.merchandise_date) as date,
+                        s.store_name,
+                        COALESCE(SUM(m.quantity * m.unitPrice), 0) as total
+                    FROM merchandise m
+                    JOIN Store s ON m.store_id = s.store_id
+                    WHERE m.store_id = %s 
+                    AND DATE(m.merchandise_date) BETWEEN %s AND %s
+                    GROUP BY DATE(m.merchandise_date), s.store_name
+                """
+                merch_data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            
+            merch_results = connect(merch_query, merch_data)
             
             # Get payroll data
-            query = """
-                SELECT 
-                    DATE(date) as date,
-                    COALESCE(SUM(bonuses), 0) as bonuses,
-                    COALESCE(SUM(wages), 0) as wages
-                FROM Payroll
-                WHERE store_id = %s 
-                AND DATE(date) BETWEEN %s AND %s
-                GROUP BY DATE(date)
-            """
-            data = (
-                store_id,
-                start_date.toPyDate(),
-                end_date.toPyDate()
-            )
-            payroll_results = connect(query, data)
+            if store_id == -1:
+                payroll_query = """
+                    SELECT 
+                        DATE(p.date) as date,
+                        s.store_name,
+                        COALESCE(SUM(p.bonuses), 0) as bonuses,
+                        COALESCE(SUM(p.wages), 0) as wages
+                    FROM Payroll p
+                    JOIN Store s ON p.store_id = s.store_id
+                    WHERE DATE(p.date) BETWEEN %s AND %s
+                    GROUP BY DATE(p.date), s.store_name
+                """
+                payroll_data = (
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            else:
+                payroll_query = """
+                    SELECT 
+                        DATE(p.date) as date,
+                        s.store_name,
+                        COALESCE(SUM(p.bonuses), 0) as bonuses,
+                        COALESCE(SUM(p.wages), 0) as wages
+                    FROM Payroll p
+                    JOIN Store s ON p.store_id = s.store_id
+                    WHERE p.store_id = %s 
+                    AND DATE(p.date) BETWEEN %s AND %s
+                    GROUP BY DATE(p.date), s.store_name
+                """
+                payroll_data = (
+                    store_id,
+                    start_date.toPyDate(),
+                    end_date.toPyDate()
+                )
+            
+            payroll_results = connect(payroll_query, payroll_data)
             
             # Clear existing table data
             self.profit_table.setRowCount(0)
             
             # Create dictionaries for merchandise and payroll data
-            merch_dict = {str(row[0]): float(row[1]) for row in merch_results} if merch_results else {}
-            payroll_dict = {
-                str(row[0]): float(row[1] + row[2]) 
-                for row in payroll_results
-            } if payroll_results else {}
+            merch_dict = {}
+            if merch_results:
+                for row in merch_results:
+                    date_key = str(row[0])
+                    store_key = row[1]
+                    if date_key not in merch_dict:
+                        merch_dict[date_key] = {}
+                    merch_dict[date_key][store_key] = float(row[2])
+
+            payroll_dict = {}
+            if payroll_results:
+                for row in payroll_results:
+                    date_key = str(row[0])
+                    store_key = row[1]
+                    if date_key not in payroll_dict:
+                        payroll_dict[date_key] = {}
+                    payroll_dict[date_key][store_key] = float(row[2] + row[3])
             
             total_period_profit = Decimal('0.00')
             
@@ -5299,11 +5368,14 @@ class Ui_OwnerDialog(object):
                     self.profit_table.insertRow(row)
                     
                     date = str(row_data[0])
-                    cash = Decimal(str(row_data[1])).quantize(Decimal('0.01'))
-                    credit = Decimal(str(row_data[2])).quantize(Decimal('0.01'))
-                    expenses = Decimal(str(row_data[3])).quantize(Decimal('0.01'))
-                    merchandise = Decimal(str(merch_dict.get(date, 0))).quantize(Decimal('0.01'))
-                    payroll = Decimal(str(payroll_dict.get(date, 0))).quantize(Decimal('0.01'))
+                    store_name = row_data[1]
+                    cash = Decimal(str(row_data[2])).quantize(Decimal('0.01'))
+                    credit = Decimal(str(row_data[3])).quantize(Decimal('0.01'))
+                    expenses = Decimal(str(row_data[4])).quantize(Decimal('0.01'))
+                    
+                    # Get merchandise and payroll values for this date and store
+                    merchandise = Decimal(str(merch_dict.get(date, {}).get(store_name, 0))).quantize(Decimal('0.01'))
+                    payroll = Decimal(str(payroll_dict.get(date, {}).get(store_name, 0))).quantize(Decimal('0.01'))
                     
                     # Calculate daily profit
                     daily_profit = (cash + credit - expenses - merchandise - payroll).quantize(Decimal('0.01'))
@@ -5327,7 +5399,7 @@ class Ui_OwnerDialog(object):
                     
                     # Add items to table
                     items = [
-                        date,
+                        f"{date} ({store_name})" if store_id == -1 else date,
                         f"${cash:.2f}",
                         f"${credit:.2f}",
                         f"${expenses:.2f}",
@@ -5339,6 +5411,14 @@ class Ui_OwnerDialog(object):
                     for col, item in enumerate(items):
                         table_item = QtWidgets.QTableWidgetItem(item)
                         table_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                        
+                        # Color the profit/loss column
+                        if col == 6:  # Total column
+                            if daily_profit >= 0:
+                                table_item.setForeground(QtGui.QColor("#27ae60"))  # Green for profit
+                            else:
+                                table_item.setForeground(QtGui.QColor("#c0392b"))  # Red for loss
+                                
                         self.profit_table.setItem(row, col, table_item)
                     
                     # Add details button to the last column
@@ -5359,6 +5439,7 @@ class Ui_OwnerDialog(object):
             # Update total profit label with color based on profit/loss
             color = "#27ae60" if total_period_profit >= 0 else "#c0392b"
             period_type = "Weekly" if self.is_weekly_view else "Monthly"
+            store_text = "All Stores" if store_id == -1 else self.profit_store_combo.currentText()
             self.total_profit_label.setStyleSheet(f"""
                 QLabel {{
                     font-size: 18px;
@@ -5369,7 +5450,7 @@ class Ui_OwnerDialog(object):
                     border-radius: 6px;
                 }}
             """)
-            self.total_profit_label.setText(f"Total {period_type} Profit: ${total_period_profit:.2f}")
+            self.total_profit_label.setText(f"Total {period_type} Profit ({store_text}): ${total_period_profit:.2f}")
             
             # Resize columns to fit content
             self.profit_table.resizeColumnsToContents()
