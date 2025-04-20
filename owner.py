@@ -292,7 +292,7 @@ class Ui_OwnerDialog(object):
         self.page_close_hist = self._create_close_history_page()
         self.page_close = self._create_close_page()  # Added close page
         self.page_gross_profit = self._create_gross_profit_page()  # Use actual gross profit page
-        self.page_payroll = self._create_payroll_page()
+        self.page_payroll = self._create_payroll_page()  # Use new payroll page
         self.page_manage_users = self._create_manage_users_page()
         self.page_manage_stores = self._create_manage_stores_page()  # Added manage stores page
 
@@ -1154,7 +1154,7 @@ class Ui_OwnerDialog(object):
         """)
         self.history_table.setAlternatingRowColors(True)
         self.history_table.horizontalHeader().setStretchLastSection(True)
-        
+        self._set_row_height(self.history_table, 44)
         # Enable editing for all columns except duration
         self.history_table.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked | 
                                          QtWidgets.QAbstractItemView.EditKeyPressed)
@@ -2200,6 +2200,7 @@ class Ui_OwnerDialog(object):
         """)
         self.expenses_table.setAlternatingRowColors(True)
         self.expenses_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self._set_row_height(self.expenses_table, 44)
         main_layout.addWidget(self.expenses_table)
 
         # Total expenses label
@@ -2672,6 +2673,7 @@ class Ui_OwnerDialog(object):
         """)
         self.merchandise_table.setAlternatingRowColors(True)
         self.merchandise_table.setEditTriggers(QtWidgets.QTableWidget.DoubleClicked | QtWidgets.QTableWidget.EditKeyPressed)
+        self._set_row_height(self.merchandise_table, 44)
         self.merchandise_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         main_layout.addWidget(self.merchandise_table)
 
@@ -3132,7 +3134,7 @@ class Ui_OwnerDialog(object):
         main_layout.addWidget(self.close_table)
 
         vh = self.close_table.verticalHeader()
-        vh.setVisible(False)              # no “1, 2, 3…” column
+        vh.setVisible(False)              # no "1, 2, 3…" column
         vh.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         # 2) Center the header text
@@ -4313,7 +4315,7 @@ class Ui_OwnerDialog(object):
             print(f"Error during close register submission: {e}")
 
     def _create_payroll_page(self):
-        """Create the payroll page with employee selection and weekly pay details."""
+        """Create the payroll page with employee selection and weekly/monthly pay details."""
         page = QtWidgets.QWidget()
         page.setStyleSheet("""
             QWidget {
@@ -4386,14 +4388,34 @@ class Ui_OwnerDialog(object):
         """)
         controls_layout.addWidget(self.payroll_employee_combo)
 
-        # Week navigation
-        week_nav_container = QtWidgets.QWidget()
-        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
-        week_nav_layout.setSpacing(10)
+        # View toggle button
+        self.payroll_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.payroll_view_toggle.setFixedHeight(40)
+        self.payroll_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.payroll_view_toggle.clicked.connect(self.toggle_payroll_view)
+        controls_layout.addWidget(self.payroll_view_toggle)
 
-        self.payroll_prev_week_btn = QtWidgets.QPushButton("←")
-        self.payroll_prev_week_btn.setFixedSize(40, 40)
-        self.payroll_prev_week_btn.setStyleSheet("""
+        # Week/Month navigation
+        nav_container = QtWidgets.QWidget()
+        nav_layout = QtWidgets.QHBoxLayout(nav_container)
+        nav_layout.setSpacing(10)
+
+        self.payroll_prev_btn = QtWidgets.QPushButton("←")
+        self.payroll_prev_btn.setFixedSize(40, 40)
+        self.payroll_prev_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -4407,17 +4429,17 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        self.payroll_week_label = QtWidgets.QLabel()
-        self.payroll_week_label.setStyleSheet("""
+        self.payroll_period_label = QtWidgets.QLabel()
+        self.payroll_period_label.setStyleSheet("""
             font-size: 14px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        self.payroll_week_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.payroll_period_label.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.payroll_next_week_btn = QtWidgets.QPushButton("→")
-        self.payroll_next_week_btn.setFixedSize(40, 40)
-        self.payroll_next_week_btn.setStyleSheet("""
+        self.payroll_next_btn = QtWidgets.QPushButton("→")
+        self.payroll_next_btn.setFixedSize(40, 40)
+        self.payroll_next_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -4431,10 +4453,10 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        week_nav_layout.addWidget(self.payroll_prev_week_btn)
-        week_nav_layout.addWidget(self.payroll_week_label)
-        week_nav_layout.addWidget(self.payroll_next_week_btn)
-        controls_layout.addWidget(week_nav_container)
+        nav_layout.addWidget(self.payroll_prev_btn)
+        nav_layout.addWidget(self.payroll_period_label)
+        nav_layout.addWidget(self.payroll_next_btn)
+        controls_layout.addWidget(nav_container)
 
         # Calendar button
         self.payroll_calendar_btn = QtWidgets.QPushButton("Select Date")
@@ -4509,6 +4531,7 @@ class Ui_OwnerDialog(object):
         """)
         self.payroll_table.setAlternatingRowColors(True)
         self.payroll_table.horizontalHeader().setStretchLastSection(True)
+        self._set_row_height(self.payroll_table, 44)
         main_layout.addWidget(self.payroll_table)
 
         # Total pay label
@@ -4525,65 +4548,62 @@ class Ui_OwnerDialog(object):
         """)
         main_layout.addWidget(self.total_pay_label, alignment=QtCore.Qt.AlignRight)
 
-        # Initialize current week
-        self.payroll_current_week_start = self.get_week_start_date()
+        # Initialize current date and view mode
+        self.payroll_current_date = QtCore.QDate.currentDate()
+        self.is_payroll_weekly_view = True
         
         # Connect signals
         self.payroll_employee_combo.currentIndexChanged.connect(self.load_payroll)
-        self.payroll_prev_week_btn.clicked.connect(self.payroll_previous_week)
-        self.payroll_next_week_btn.clicked.connect(self.payroll_next_week)
+        self.payroll_prev_btn.clicked.connect(self.payroll_previous_period)
+        self.payroll_next_btn.clicked.connect(self.payroll_next_period)
         self.payroll_calendar_btn.clicked.connect(self.payroll_show_calendar)
         self.payroll_refresh_btn.clicked.connect(self.load_payroll)
 
         # Initialize the page
         self.populate_payroll_employees()
-        self.update_payroll_week_label()
+        self.update_payroll_period_label()
 
         self.stackedWidget.addWidget(page)
         return page
 
-    def populate_payroll_employees(self):
-        """Populate the payroll employee combo box with employee names."""
-        try:
-            query = """
-                SELECT employee_id, firstName, lastName, role 
-                FROM employee 
-                WHERE role IN ('employee', 'manager')
-                ORDER BY role, lastName, firstName
-            """
-            results = connect(query, None)
-            
-            if results:
-                self.payroll_employee_combo.clear()
-                for employee in results:
-                    display_text = f"{employee[1]} {employee[2]} ({employee[3]})"
-                    self.payroll_employee_combo.addItem(display_text, employee[0])
-        except Exception as e:
-            print(f"Error populating payroll employees: {e}")
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employees: {e}")
+    def toggle_payroll_view(self):
+        """Toggle between weekly and monthly payroll view."""
+        self.is_payroll_weekly_view = not self.is_payroll_weekly_view
+        self.payroll_view_toggle.setText("Weekly View" if self.is_payroll_weekly_view else "Monthly View")
+        self.update_payroll_period_label()
 
-    def update_payroll_week_label(self):
-        """Update the payroll week label with the current week range."""
-        week_end = self.payroll_current_week_start.addDays(6)
-        self.payroll_week_label.setText(
-            f"{self.payroll_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
-        )
+    def update_payroll_period_label(self):
+        """Update the payroll period label based on the current view mode."""
+        if self.is_payroll_weekly_view:
+            week_start = self.payroll_current_date.addDays(-self.payroll_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.payroll_period_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.payroll_period_label.setText(self.payroll_current_date.toString('MMMM yyyy'))
         self.load_payroll()
 
-    def payroll_previous_week(self):
-        """Navigate to the previous week in payroll."""
-        self.payroll_current_week_start = self.payroll_current_week_start.addDays(-7)
-        self.update_payroll_week_label()
+    def payroll_previous_period(self):
+        """Navigate to the previous period (week or month) in payroll view."""
+        if self.is_payroll_weekly_view:
+            self.payroll_current_date = self.payroll_current_date.addDays(-7)
+        else:
+            self.payroll_current_date = self.payroll_current_date.addMonths(-1)
+        self.update_payroll_period_label()
 
-    def payroll_next_week(self):
-        """Navigate to the next week in payroll."""
-        self.payroll_current_week_start = self.payroll_current_week_start.addDays(7)
-        self.update_payroll_week_label()
+    def payroll_next_period(self):
+        """Navigate to the next period (week or month) in payroll view."""
+        if self.is_payroll_weekly_view:
+            self.payroll_current_date = self.payroll_current_date.addDays(7)
+        else:
+            self.payroll_current_date = self.payroll_current_date.addMonths(1)
+        self.update_payroll_period_label()
 
     def payroll_show_calendar(self):
-        """Show calendar dialog to select a date for payroll."""
+        """Show calendar dialog to select a date for payroll view."""
         calendar = QtWidgets.QCalendarWidget()
-        calendar.setSelectedDate(self.payroll_current_week_start)
+        calendar.setSelectedDate(self.payroll_current_date)
         
         dialog = QtWidgets.QDialog()
         dialog.setWindowTitle("Select Date")
@@ -4600,12 +4620,11 @@ class Ui_OwnerDialog(object):
         layout.addWidget(buttons)
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            selected_date = calendar.selectedDate()
-            self.payroll_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
-            self.update_payroll_week_label()
+            self.payroll_current_date = calendar.selectedDate()
+            self.update_payroll_period_label()
 
     def load_payroll(self):
-        """Load the payroll data for the selected employee and week."""
+        """Load the payroll data for the selected employee and period."""
         from decimal import Decimal
 
         employee_id = self.payroll_employee_combo.currentData()
@@ -4613,7 +4632,13 @@ class Ui_OwnerDialog(object):
             return
 
         try:
-            week_end = self.payroll_current_week_start.addDays(6)
+            # Calculate start and end dates based on view mode
+            if self.is_payroll_weekly_view:
+                start_date = self.payroll_current_date.addDays(-self.payroll_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.payroll_current_date.year(), self.payroll_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
             
             # Get employee's hourly rate and bonus percentage
             query = """
@@ -4629,9 +4654,9 @@ class Ui_OwnerDialog(object):
                 raise Exception("Could not find employee information")
             
             hourly_rate = float(employee_info[0][0])
-            bonus_percentage = float(employee_info[0][1])  # This is stored as the actual percentage (e.g., 3.4)
+            bonus_percentage = float(employee_info[0][1])
             
-            # Get clock records for the week with more precise hour calculation
+            # Get clock records for the period
             query = """
                 SELECT 
                     DATE(clock_in) as date,
@@ -4646,15 +4671,15 @@ class Ui_OwnerDialog(object):
             """
             data = (
                 employee_id,
-                self.payroll_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
             results = connect(query, data)
             
             # Clear existing table data
             self.payroll_table.setRowCount(0)
             
-            total_weekly_pay = Decimal('0.00')
+            total_period_pay = Decimal('0.00')
             
             if results:
                 for row_data in results:
@@ -4663,8 +4688,8 @@ class Ui_OwnerDialog(object):
                     
                     date = row_data[0]
                     hours = float(row_data[1] if row_data[1] is not None else 0)
-                    reg_in = float(row_data[2])  # Already COALESCEd to 0 in query
-                    reg_out = float(row_data[3])  # Already COALESCEd to reg_in or 0 in query
+                    reg_in = float(row_data[2])
+                    reg_out = float(row_data[3])
                     
                     # Skip if no hours worked
                     if hours <= 0:
@@ -4674,8 +4699,7 @@ class Ui_OwnerDialog(object):
                     hourly_pay = Decimal(str(hours * hourly_rate)).quantize(Decimal('0.01'))
                     register_diff = Decimal(str(reg_out - reg_in)).quantize(Decimal('0.01'))
                     
-                    # Calculate bonus based on the formula: (reg_out - reg_in) * (1 + bonus_percentage/100)
-                    # If register_diff is negative, bonus is 0
+                    # Calculate bonus
                     if register_diff > 0:
                         bonus_multiplier = Decimal(str(1 + (bonus_percentage / 100))).quantize(Decimal('0.01'))
                         bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
@@ -4683,7 +4707,7 @@ class Ui_OwnerDialog(object):
                         bonus = Decimal('0.00')
                     
                     total_pay = (hourly_pay + bonus).quantize(Decimal('0.01'))
-                    total_weekly_pay += total_pay
+                    total_period_pay += total_pay
                     
                     # Add items to table
                     items = [
@@ -4702,7 +4726,8 @@ class Ui_OwnerDialog(object):
                         self.payroll_table.setItem(row, col, table_item)
             
             # Update total pay label
-            self.total_pay_label.setText(f"Total Weekly Pay: ${total_weekly_pay:.2f}")
+            period_type = "Weekly" if self.is_payroll_weekly_view else "Monthly"
+            self.total_pay_label.setText(f"Total {period_type} Pay: ${total_period_pay:.2f}")
             
             # Resize columns to fit content
             self.payroll_table.resizeColumnsToContents()
@@ -5064,14 +5089,34 @@ class Ui_OwnerDialog(object):
         """)
         controls_layout.addWidget(self.profit_store_combo)
 
-        # Week navigation
+        # View toggle button
+        self.profit_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.profit_view_toggle.setFixedHeight(40)
+        self.profit_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.profit_view_toggle.clicked.connect(self.toggle_profit_view)
+        controls_layout.addWidget(self.profit_view_toggle)
+
+        # Week/Month navigation
         week_nav_container = QtWidgets.QWidget()
         week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
         week_nav_layout.setSpacing(10)
 
-        self.profit_prev_week_btn = QtWidgets.QPushButton("←")
-        self.profit_prev_week_btn.setFixedSize(40, 40)
-        self.profit_prev_week_btn.setStyleSheet("""
+        self.profit_prev_btn = QtWidgets.QPushButton("←")
+        self.profit_prev_btn.setFixedSize(40, 40)
+        self.profit_prev_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -5085,17 +5130,17 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        self.profit_week_label = QtWidgets.QLabel()
-        self.profit_week_label.setStyleSheet("""
+        self.profit_period_label = QtWidgets.QLabel()
+        self.profit_period_label.setStyleSheet("""
             font-size: 14px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        self.profit_week_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.profit_period_label.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.profit_next_week_btn = QtWidgets.QPushButton("→")
-        self.profit_next_week_btn.setFixedSize(40, 40)
-        self.profit_next_week_btn.setStyleSheet("""
+        self.profit_next_btn = QtWidgets.QPushButton("→")
+        self.profit_next_btn.setFixedSize(40, 40)
+        self.profit_next_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -5109,9 +5154,9 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        week_nav_layout.addWidget(self.profit_prev_week_btn)
-        week_nav_layout.addWidget(self.profit_week_label)
-        week_nav_layout.addWidget(self.profit_next_week_btn)
+        week_nav_layout.addWidget(self.profit_prev_btn)
+        week_nav_layout.addWidget(self.profit_period_label)
+        week_nav_layout.addWidget(self.profit_next_btn)
         controls_layout.addWidget(week_nav_container)
 
         # Calendar button
@@ -5186,6 +5231,7 @@ class Ui_OwnerDialog(object):
         """)
         self.profit_table.setAlternatingRowColors(True)
         self.profit_table.horizontalHeader().setStretchLastSection(True)
+        self._set_row_height(self.profit_table, 44)
         main_layout.addWidget(self.profit_table)
 
         # Total profit label
@@ -5202,59 +5248,62 @@ class Ui_OwnerDialog(object):
         """)
         main_layout.addWidget(self.total_profit_label, alignment=QtCore.Qt.AlignRight)
 
-        # Initialize current week
-        self.profit_current_week_start = self.get_week_start_date()
+        # Initialize current date and view mode
+        self.profit_current_date = QtCore.QDate.currentDate()
+        self.is_weekly_view = True
         
         # Connect signals
         self.profit_store_combo.currentIndexChanged.connect(self.load_profit)
-        self.profit_prev_week_btn.clicked.connect(self.profit_previous_week)
-        self.profit_next_week_btn.clicked.connect(self.profit_next_week)
+        self.profit_prev_btn.clicked.connect(self.profit_previous_period)
+        self.profit_next_btn.clicked.connect(self.profit_next_period)
         self.profit_calendar_btn.clicked.connect(self.profit_show_calendar)
         self.profit_refresh_btn.clicked.connect(self.load_profit)
 
         # Initialize the page
         self.populate_profit_stores()
-        self.update_profit_week_label()
+        self.update_profit_period_label()
 
         self.stackedWidget.addWidget(page)
         return page
 
-    def populate_profit_stores(self):
-        """Populate the profit store combo box with store names."""
-        try:
-            query = "SELECT store_id, store_name FROM Store ORDER BY store_name"
-            results = connect(query, None)
-            
-            if results:
-                self.profit_store_combo.clear()
-                for store in results:
-                    self.profit_store_combo.addItem(store[1], store[0])
-        except Exception as e:
-            print(f"Error populating profit stores: {e}")
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+    def toggle_profit_view(self):
+        """Toggle between weekly and monthly view."""
+        self.is_weekly_view = not self.is_weekly_view
+        self.profit_view_toggle.setText("Weekly View" if self.is_weekly_view else "Monthly View")
+        self.update_profit_period_label()
 
-    def update_profit_week_label(self):
-        """Update the profit week label with the current week range."""
-        week_end = self.profit_current_week_start.addDays(6)
-        self.profit_week_label.setText(
-            f"{self.profit_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
-        )
+    def update_profit_period_label(self):
+        """Update the period label based on the current view mode."""
+        if self.is_weekly_view:
+            week_start = self.profit_current_date.addDays(-self.profit_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.profit_period_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.profit_period_label.setText(self.profit_current_date.toString('MMMM yyyy'))
         self.load_profit()
 
-    def profit_previous_week(self):
-        """Navigate to the previous week in profit view."""
-        self.profit_current_week_start = self.profit_current_week_start.addDays(-7)
-        self.update_profit_week_label()
+    def profit_previous_period(self):
+        """Navigate to the previous period (week or month) in profit view."""
+        if self.is_weekly_view:
+            self.profit_current_date = self.profit_current_date.addDays(-7)
+        else:
+            self.profit_current_date = self.profit_current_date.addMonths(-1)
+        self.update_profit_period_label()
 
-    def profit_next_week(self):
-        """Navigate to the next week in profit view."""
-        self.profit_current_week_start = self.profit_current_week_start.addDays(7)
-        self.update_profit_week_label()
+    def profit_next_period(self):
+        """Navigate to the next period (week or month) in profit view."""
+        if self.is_weekly_view:
+            self.profit_current_date = self.profit_current_date.addDays(7)
+        else:
+            self.profit_current_date = self.profit_current_date.addMonths(1)
+        self.update_profit_period_label()
 
     def profit_show_calendar(self):
         """Show calendar dialog to select a date for profit view."""
         calendar = QtWidgets.QCalendarWidget()
-        calendar.setSelectedDate(self.profit_current_week_start)
+        calendar.setSelectedDate(self.profit_current_date)
         
         dialog = QtWidgets.QDialog()
         dialog.setWindowTitle("Select Date")
@@ -5271,12 +5320,11 @@ class Ui_OwnerDialog(object):
         layout.addWidget(buttons)
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            selected_date = calendar.selectedDate()
-            self.profit_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
-            self.update_profit_week_label()
+            self.profit_current_date = calendar.selectedDate()
+            self.update_profit_period_label()
 
     def load_profit(self):
-        """Load the profit data for the selected store and week."""
+        """Load the profit data for the selected store and period."""
         from decimal import Decimal
 
         store_id = self.profit_store_combo.currentData()
@@ -5284,7 +5332,13 @@ class Ui_OwnerDialog(object):
             return
 
         try:
-            week_end = self.profit_current_week_start.addDays(6)
+            # Calculate start and end dates based on view mode
+            if self.is_weekly_view:
+                start_date = self.profit_current_date.addDays(-self.profit_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.profit_current_date.year(), self.profit_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
             
             # Get store name for the query
             store_name = self.profit_store_combo.currentText()
@@ -5303,8 +5357,8 @@ class Ui_OwnerDialog(object):
             """
             data = (
                 store_name,
-                self.profit_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
             close_results = connect(query, data)
             
@@ -5320,8 +5374,8 @@ class Ui_OwnerDialog(object):
             """
             data = (
                 store_id,
-                self.profit_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
             merch_results = connect(query, data)
             
@@ -5338,8 +5392,8 @@ class Ui_OwnerDialog(object):
             """
             data = (
                 store_id,
-                self.profit_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
             payroll_results = connect(query, data)
             
@@ -5353,7 +5407,7 @@ class Ui_OwnerDialog(object):
                 for row in payroll_results
             } if payroll_results else {}
             
-            total_weekly_profit = Decimal('0.00')
+            total_period_profit = Decimal('0.00')
             
             if close_results:
                 for row_data in close_results:
@@ -5369,7 +5423,7 @@ class Ui_OwnerDialog(object):
                     
                     # Calculate daily profit
                     daily_profit = (cash + credit - expenses - merchandise - payroll).quantize(Decimal('0.01'))
-                    total_weekly_profit += daily_profit
+                    total_period_profit += daily_profit
                     
                     # Create details button
                     details_btn = QtWidgets.QPushButton("View")
@@ -5419,7 +5473,8 @@ class Ui_OwnerDialog(object):
                     )
             
             # Update total profit label with color based on profit/loss
-            color = "#27ae60" if total_weekly_profit >= 0 else "#c0392b"
+            color = "#27ae60" if total_period_profit >= 0 else "#c0392b"
+            period_type = "Weekly" if self.is_weekly_view else "Monthly"
             self.total_profit_label.setStyleSheet(f"""
                 QLabel {{
                     font-size: 18px;
@@ -5430,7 +5485,7 @@ class Ui_OwnerDialog(object):
                     border-radius: 6px;
                 }}
             """)
-            self.total_profit_label.setText(f"Total Weekly Profit: ${total_weekly_profit:.2f}")
+            self.total_profit_label.setText(f"Total {period_type} Profit: ${total_period_profit:.2f}")
             
             # Resize columns to fit content
             self.profit_table.resizeColumnsToContents()
@@ -5508,6 +5563,45 @@ class Ui_OwnerDialog(object):
         layout.addWidget(close_btn)
         
         dialog.exec_()
+    
+    def _set_row_height(self, table: QtWidgets.QTableWidget, px: int = 44):
+        vh = table.verticalHeader()
+        vh.setDefaultSectionSize(px)          # all rows get this height
+        vh.setMinimumSectionSize(px)          # prevents users from shrinking them
+
+    def populate_profit_stores(self):
+        """Populate the profit store combo box with store names."""
+        try:
+            query = "SELECT store_id, store_name FROM Store ORDER BY store_name"
+            results = connect(query, None)
+            
+            if results:
+                self.profit_store_combo.clear()
+                for store in results:
+                    self.profit_store_combo.addItem(store[1], store[0])
+        except Exception as e:
+            print(f"Error populating profit stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def populate_payroll_employees(self):
+        """Populate the payroll employee combo box with employee names."""
+        try:
+            query = """
+                SELECT employee_id, firstName, lastName, role 
+                FROM employee 
+                WHERE role IN ('employee', 'manager')
+                ORDER BY role, lastName, firstName
+            """
+            results = connect(query, None)
+            
+            if results:
+                self.payroll_employee_combo.clear()
+                for employee in results:
+                    display_text = f"{employee[1]} {employee[2]} ({employee[3]})"
+                    self.payroll_employee_combo.addItem(display_text, employee[0])
+        except Exception as e:
+            print(f"Error populating payroll employees: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load employees: {e}")
 
 
 # -----------------------------------------------------------------------------
