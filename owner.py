@@ -3133,7 +3133,7 @@ class Ui_OwnerDialog(object):
 
         vh = self.close_table.verticalHeader()
         vh.setVisible(False)              # no “1, 2, 3…” column
-        vh.setDefaultSectionSize(48)      # 32‑px button + ~16‑px margins
+        vh.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         # 2) Center the header text
         hh = self.close_table.horizontalHeader()
@@ -3145,23 +3145,10 @@ class Ui_OwnerDialog(object):
             if col in (3, 4, 5):                          # Credit / Cash / Expense
                 mode = QtWidgets.QHeaderView.ResizeToContents
             elif col == 8:                                # Actions (Save btns)
-                mode = QtWidgets.QHeaderView.Fixed
+                mode = QtWidgets.QHeaderView.ResizeToContents
             hh.setSectionResizeMode(col, mode)
 
-        self.close_table.setColumnWidth(8, 130)  
-
-        # --- make the Actions column and rows big enough ---
-        header = self.close_table.horizontalHeader()
-        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)           
-        header.setSectionResizeMode(8, QtWidgets.QHeaderView.ResizeToContents)  
-        self.close_table.setColumnWidth(8, 130)                              # 2×85‑px buttons + padding
-
-        # give every row a fixed, taller height so the buttons aren’t clipped
-        self.close_table.verticalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Fixed
-        )
-        self.close_table.verticalHeader().setDefaultSectionSize(40)         
-
+     
         
         # Initialize current week
         self.close_current_week_start = self.get_week_start_date()
@@ -3339,36 +3326,28 @@ class Ui_OwnerDialog(object):
                     comment_item.setFlags(comment_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.close_table.setItem(row, 7, comment_item)
                     
-                    # Add Edit button
-                    actions_widget = QtWidgets.QWidget()
-                    actions_layout = QtWidgets.QHBoxLayout(actions_widget)
-                    actions_layout.setContentsMargins(5, 2, 5, 2)
-                    actions_layout.setSpacing(8)
-                    
                     edit_btn = QtWidgets.QPushButton("Save")
-                    edit_btn.setMinimumSize(70, 28)
+                    edit_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                                        QtWidgets.QSizePolicy.Expanding)
                     edit_btn.setStyleSheet("""
                         QPushButton {
                             background-color: #3498db;
                             color: white;
                             border: none;
-                            border-radius: 6px;
-                            padding: 6px;
-                            font-size: 13px;
+                            border-radius: 0px;      /* flush with cell edges */
+                            font-size: 14px;
                             font-weight: bold;
-                            min-width: 80px;
                         }
-                        QPushButton:hover {
-                            background-color: #2980b9;
-                        }
-                        QPushButton:pressed {
-                            background-color: #1c6ea4;
-                        }
+                        QPushButton:hover   { background-color: #2980b9; }
+                        QPushButton:pressed { background-color: #1c6ea4; }
                     """)
                     edit_btn.clicked.connect(lambda checked, r=row: self.save_close_changes(r))
-                    actions_layout.addWidget(edit_btn)
-                    
-                    self.close_table.setCellWidget(row, 8, actions_widget)
+
+                    self.close_table.setCellWidget(row, 8, edit_btn)
+
+                    btn_h = edit_btn.sizeHint().height() + 6   # 3‑px top + 3‑px bottom
+                    if self.close_table.rowHeight(row) < btn_h:
+                        self.close_table.setRowHeight(row, btn_h)
 
                     # Make sure the table has enough columns for the Edit button
                     if self.close_table.columnCount() < 9:
