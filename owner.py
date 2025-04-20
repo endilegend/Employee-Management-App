@@ -204,20 +204,18 @@ class Ui_OwnerDialog(object):
 
         # Button text and colors
         buttons_def = [
-            ("Clock In", "#2ecc71"),
-            ("Clock Out", "#e74c3c"),
             ("Enter Invoice", "#16a085"),
             ("Enter Expense", "#c0392b"),
             ("Enter Merchandise", "#8e44ad"),
+            ("Close Register", "#f39c12"),
             ("Employee History", "#2980b9"),
             ("Expenses History", "#d35400"),
             ("Merchandise History", "#2ecc71"),
             ("Close History", "#3498db"),
-            ("Close Register", "#f39c12"),  # Added Close Register button
             ("Gross Profit", "#f1c40f"),
             ("Payroll", "#e67e22"),
             ("Manage Users", "#95a5a6"),
-            ("Manage Stores", "#1abc9c"),  # Added Manage Stores button
+            ("Manage Stores", "#1abc9c"), 
         ]
 
         self.sidebar_buttons = {}
@@ -281,8 +279,6 @@ class Ui_OwnerDialog(object):
         )
 
         # Create pages
-        self.page_clock_in = self._create_clock_in_page()
-        self.page_clock_out = self._create_clock_out_page()
         self.page_invoice = self._create_invoice_page()
         self.page_expense = self._create_expense_page()
         self.page_merchandise = self._create_merchandise_page()
@@ -302,8 +298,6 @@ class Ui_OwnerDialog(object):
 
         # ---------- Connections ----------
         mapping = {
-            "Clock In": self.page_clock_in,
-            "Clock Out": self.page_clock_out,
             "Enter Invoice": self.page_invoice,
             "Enter Expense": self.page_expense,
             "Enter Merchandise": self.page_merchandise,
@@ -320,127 +314,6 @@ class Ui_OwnerDialog(object):
         for text, btn in self.sidebar_buttons.items():
             btn.clicked.connect(lambda checked, w=mapping[text]: self.stackedWidget.setCurrentWidget(w))
 
-    def _create_clock_in_page(self):
-        """Create the clock in page."""
-        page = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
-
-        # Title
-        title = QtWidgets.QLabel("Clock In")
-        title.setStyleSheet("""
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 20px;
-        """)
-        layout.addWidget(title)
-
-        # Balance input
-        self.reg_in_balance = QtWidgets.QLineEdit()
-        self.reg_in_balance.setPlaceholderText("Enter Register Balance")
-        self.reg_in_balance.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 16px;
-                background-color: #f8f9fa;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        layout.addWidget(self.reg_in_balance)
-
-        # Clock In button
-        self.clock_in_btn = QtWidgets.QPushButton("Clock In")
-        self.clock_in_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2ecc71;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 12px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #27ae60;
-            }
-            QPushButton:pressed {
-                background-color: #219653;
-            }
-        """)
-        self.clock_in_btn.clicked.connect(self.clock_in)
-        layout.addWidget(self.clock_in_btn)
-
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
-        return page
-
-    def _create_clock_out_page(self):
-        """Create the clock out page."""
-        page = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
-
-        # Title
-        title = QtWidgets.QLabel("Clock Out")
-        title.setStyleSheet("""
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 20px;
-        """)
-        layout.addWidget(title)
-
-        # Balance input
-        self.reg_out_balance = QtWidgets.QLineEdit()
-        self.reg_out_balance.setPlaceholderText("Enter Register Balance")
-        self.reg_out_balance.setStyleSheet("""
-            QLineEdit {
-                padding: 12px;
-                border: 2px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 16px;
-                background-color: #f8f9fa;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: white;
-            }
-        """)
-        layout.addWidget(self.reg_out_balance)
-
-        # Clock Out button
-        self.clock_out_btn = QtWidgets.QPushButton("Clock Out")
-        self.clock_out_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 12px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-            QPushButton:pressed {
-                background-color: #a93226;
-            }
-        """)
-        self.clock_out_btn.clicked.connect(self.clock_out)
-        layout.addWidget(self.clock_out_btn)
-
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
-        return page
 
     def _create_invoice_page(self):
         """Create the invoice page with input fields and submit functionality."""
@@ -1765,221 +1638,16 @@ class Ui_OwnerDialog(object):
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to submit merchandise: {e}")
             print(f"Error during merchandise submission: {e}")
 
-    def clock_in(self):
-        """Handle the clock-in operation."""
-        print(f"Attempting to clock in employee ID: {self.employee_id}")
-        
-        if not self.employee_id:
-            QtWidgets.QMessageBox.critical(None, "Error", "Employee ID is missing. Please log in again.")
-            print("Error: Employee ID is missing")
-            return
-
-        if not self.store_id:
-            QtWidgets.QMessageBox.critical(None, "Error", "Store ID is missing. Please select a store.")
-            print("Error: Store ID is missing")
-            return
-
-        # Get the current time
-        try:
-            current_time = datetime.now()
-            print(f"Current time: {current_time}")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to get current time: {e}")
-            print(f"Error getting current time: {e}")
-            return
-
-        # Get the cash-in value from the input
-        try:
-            reg_in = float(self.reg_in_balance.text())
-            print(f"Register in amount: ${reg_in:.2f}")
-        except ValueError:
-            QtWidgets.QMessageBox.warning(None, "Invalid Input", "Please enter a valid cash-in amount.")
-            print("Error: Invalid cash-in amount")
-            return
-
-        # Check if the employee is already clocked in
-        try:
-            query = "SELECT * FROM clockTable WHERE employee_id = %s AND store_id = %s AND clock_out IS NULL"
-            data = (self.employee_id, self.store_id)
-            print(f"Checking if employee is already clocked in. Query: {query}, Data: {data}")
-            results = connect(query, data)
-            print(f"Clock-in check results: {results}")
-
-            if results:
-                QtWidgets.QMessageBox.warning(None, "Already Clocked In", "You are already clocked in. Please clock out first.")
-                print("Error: Employee already clocked in")
-                return
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to check clock-in status: {e}")
-            print(f"Error checking clock-in status: {e}")
-            return
-
-        # Insert a new clock-in entry
-        try:
-            query = """
-                INSERT INTO clockTable (employee_id, store_id, clock_in, reg_in)
-                VALUES (%s, %s, %s, %s)
-            """
-            data = (self.employee_id, self.store_id, current_time, reg_in)
-            print(f"Inserting clock-in record. Query: {query}, Data: {data}")
-            success = connect(query, data)
-            print(f"Clock-in insert result: {success}")
-
-            if success:
-                QtWidgets.QMessageBox.information(None, "Clock-In Successful", "You have successfully clocked in.")
-                self.reg_in_balance.clear()  # Clear the input field
-                print("Clock-in successful")
-            else:
-                QtWidgets.QMessageBox.critical(None, "Clock-In Failed", "An error occurred while clocking in.")
-                print("Error: Clock-in insert failed")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to clock in: {e}")
-            print(f"Error during clock-in: {e}")
-
-    def clock_out(self):
-        """Handle the clock out process."""
-        try:
-            # Get the current values
-            credit = float(self.credit_input.text()) if self.credit_input.text() else 0
-            cash = float(self.cash_input.text()) if self.cash_input.text() else 0
-            expense = float(self.expense_input.text()) if self.expense_input.text() else 0
-            comments = self.comments_input.toPlainText()
-            
-            # Validate inputs
-            if credit < 0 or cash < 0 or expense < 0:
-                raise ValueError("Values cannot be negative")
-            
-            # Get employee name and bonus percentage
-            emp_query = "SELECT firstName, lastName, bonus_percentage, hourlyRate FROM employee WHERE employee_id = %s"
-            emp_result = connect(emp_query, (self.employee_id,))
-            if not emp_result:
-                raise Exception("Could not find employee information")
-            
-            firstName, lastName, bonus_percentage, hourly_rate = emp_result[0]
-            
-            # Use REPLACE INTO to handle duplicate entries for the same store and date
-            close_query = """
-                REPLACE INTO employee_close 
-                (firstName, lastName, store_name, credit, cash_in_envelope, expense, comments, employee_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            close_data = (
-                firstName,
-                lastName,
-                self.store_name,
-                credit,
-                cash,
-                expense,
-                comments,
-                self.employee_id
-            )
-            
-            close_success = connect(close_query, close_data)
-            if not close_success:
-                raise Exception("Failed to submit close information")
-            
-            # Get clock in time and calculate hours worked
-            clock_query = """
-                SELECT clock_in, reg_in 
-                FROM clockTable 
-                WHERE employee_id = %s 
-                AND DATE(clock_in) = CURDATE()
-                AND clock_out IS NULL
-            """
-            clock_data = (self.employee_id,)
-            clock_result = connect(clock_query, clock_data)
-            
-            if not clock_result:
-                raise Exception("No clock-in record found")
-                
-            clock_in_time = clock_result[0][0]
-            reg_in_amount = float(clock_result[0][1])
-            
-            # Calculate hours worked
-            current_time = datetime.now()
-            time_diff = current_time - clock_in_time
-            hours_worked = time_diff.total_seconds() / 3600  # Convert to hours
-            
-            # Calculate wages and bonus
-            wages = hours_worked * hourly_rate
-            register_diff = (credit + cash) - reg_in_amount
-            bonus_multiplier = 1 + (float(bonus_percentage) / 100)
-            bonus = max(0, register_diff * bonus_multiplier)  # Ensure bonus isn't negative
-            
-            # Check if payroll record exists for this date and store
-            payroll_check_query = """
-                SELECT payroll_id, bonuses, wages 
-                FROM Payroll 
-                WHERE DATE(date) = CURDATE() 
-                AND store_id = %s
-            """
-            payroll_check_data = (self.store_id,)
-            payroll_result = connect(payroll_check_query, payroll_check_data)
-            
-            if payroll_result:
-                # Update existing payroll record
-                payroll_update_query = """
-                    UPDATE Payroll 
-                    SET bonuses = bonuses + %s,
-                        wages = wages + %s
-                    WHERE payroll_id = %s
-                """
-                payroll_update_data = (bonus, wages, payroll_result[0][0])
-                connect(payroll_update_query, payroll_update_data)
-            else:
-                # Create new payroll record
-                payroll_insert_query = """
-                    INSERT INTO Payroll (date, bonuses, wages, store_id)
-                    VALUES (CURDATE(), %s, %s, %s)
-                """
-                payroll_insert_data = (bonus, wages, self.store_id)
-                connect(payroll_insert_query, payroll_insert_data)
-            
-            # Update clock out time and register out amount
-            clock_update_query = """
-                UPDATE clockTable 
-                SET clock_out = NOW(),
-                    reg_out = %s
-                WHERE employee_id = %s 
-                AND DATE(clock_in) = CURDATE()
-                AND clock_out IS NULL
-            """
-            clock_update_data = (credit + cash, self.employee_id)
-            clock_success = connect(clock_update_query, clock_update_data)
-            
-            if clock_success:
-                QtWidgets.QMessageBox.information(None, "Success", "Successfully clocked out!")
-                if self.stacked_widget:
-                    self.stacked_widget.setCurrentIndex(0)  # Return to login page
-            else:
-                raise Exception("Failed to update clock out information")
-                
-        except ValueError as e:
-            QtWidgets.QMessageBox.warning(None, "Invalid Input", str(e))
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to clock out: {e}")
-
     def sign_out(self):
         """Handle the sign-out operation."""
-        # Show confirmation dialog
-        reply = QtWidgets.QMessageBox.question(
-            None,
-            'Sign Out',
-            'Are you sure you want to sign out?',
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No
-        )
+        self.employee_id = None
+        self.store_id = None
         
-        if reply == QtWidgets.QMessageBox.Yes and self.stacked_widget:
-            # Minimize cleanup operations
-            self.employee_id = None
-            self.store_id = None
-            
-            # Redirect to login screen immediately
-            self.stacked_widget.setCurrentIndex(0)
-            
-            # Clear UI elements after redirection
-            QtCore.QTimer.singleShot(100, self._clear_ui)
+        # Redirect to login screen immediately
+        self.stacked_widget.setCurrentIndex(0)
+        
+        # Clear UI elements after redirection
+        QtCore.QTimer.singleShot(100, self._clear_ui)
     
     def _clear_ui(self):
         """Clear UI elements after redirection."""
@@ -2532,14 +2200,34 @@ class Ui_OwnerDialog(object):
         """)
         controls_layout.addWidget(self.merchandise_store_combo)
 
-        # Week navigation
-        week_nav_container = QtWidgets.QWidget()
-        week_nav_layout = QtWidgets.QHBoxLayout(week_nav_container)
-        week_nav_layout.setSpacing(10)
+        # View toggle button
+        self.merchandise_view_toggle = QtWidgets.QPushButton("Weekly View")
+        self.merchandise_view_toggle.setFixedHeight(40)
+        self.merchandise_view_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        self.merchandise_view_toggle.clicked.connect(self.toggle_merchandise_view)
+        controls_layout.addWidget(self.merchandise_view_toggle)
 
-        self.merchandise_prev_week_btn = QtWidgets.QPushButton("←")
-        self.merchandise_prev_week_btn.setFixedSize(40, 40)
-        self.merchandise_prev_week_btn.setStyleSheet("""
+        # Week/Month navigation
+        nav_container = QtWidgets.QWidget()
+        nav_layout = QtWidgets.QHBoxLayout(nav_container)
+        nav_layout.setSpacing(10)
+
+        self.merchandise_prev_btn = QtWidgets.QPushButton("←")
+        self.merchandise_prev_btn.setFixedSize(40, 40)
+        self.merchandise_prev_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -2553,17 +2241,17 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        self.merchandise_week_label = QtWidgets.QLabel()
-        self.merchandise_week_label.setStyleSheet("""
+        self.merchandise_period_label = QtWidgets.QLabel()
+        self.merchandise_period_label.setStyleSheet("""
             font-size: 14px;
             font-weight: bold;
             color: #2c3e50;
         """)
-        self.merchandise_week_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.merchandise_period_label.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.merchandise_next_week_btn = QtWidgets.QPushButton("→")
-        self.merchandise_next_week_btn.setFixedSize(40, 40)
-        self.merchandise_next_week_btn.setStyleSheet("""
+        self.merchandise_next_btn = QtWidgets.QPushButton("→")
+        self.merchandise_next_btn.setFixedSize(40, 40)
+        self.merchandise_next_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -2577,10 +2265,10 @@ class Ui_OwnerDialog(object):
             }
         """)
 
-        week_nav_layout.addWidget(self.merchandise_prev_week_btn)
-        week_nav_layout.addWidget(self.merchandise_week_label)
-        week_nav_layout.addWidget(self.merchandise_next_week_btn)
-        controls_layout.addWidget(week_nav_container)
+        nav_layout.addWidget(self.merchandise_prev_btn)
+        nav_layout.addWidget(self.merchandise_period_label)
+        nav_layout.addWidget(self.merchandise_next_btn)
+        controls_layout.addWidget(nav_container)
 
         # Calendar button
         self.merchandise_calendar_btn = QtWidgets.QPushButton("Select Date")
@@ -2643,7 +2331,7 @@ class Ui_OwnerDialog(object):
 
         # Merchandise table
         self.merchandise_table = QtWidgets.QTableWidget()
-        self.merchandise_table.setColumnCount(7)  # Added merchandise_id column
+        self.merchandise_table.setColumnCount(7)
         self.merchandise_table.setHorizontalHeaderLabels([
             "ID", "Date", "Type", "Quantity", "Unit Price", "Total", "Employee"
         ])
@@ -2691,73 +2379,64 @@ class Ui_OwnerDialog(object):
         """)
         main_layout.addWidget(self.merchandise_total_label)
 
-        # Initialize current week
-        self.merchandise_current_week_start = self.get_week_start_date()
+        # Initialize current date and view mode
+        self.merchandise_current_date = QtCore.QDate.currentDate()
+        self.is_merchandise_weekly_view = True
         
         # Connect signals
         self.merchandise_store_combo.currentIndexChanged.connect(self.load_merchandise_history)
-        self.merchandise_prev_week_btn.clicked.connect(self.merchandise_previous_week)
-        self.merchandise_next_week_btn.clicked.connect(self.merchandise_next_week)
+        self.merchandise_prev_btn.clicked.connect(self.merchandise_previous_period)
+        self.merchandise_next_btn.clicked.connect(self.merchandise_next_period)
         self.merchandise_calendar_btn.clicked.connect(self.merchandise_show_calendar)
         self.merchandise_refresh_btn.clicked.connect(self.load_merchandise_history)
         self.merchandise_submit_btn.clicked.connect(self.submit_merchandise_changes)
         self.merchandise_table.cellChanged.connect(self.calculate_merchandise_total)
 
-        # Add shadow effect to the page
-        shadow = QtWidgets.QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(15)
-        shadow.setColor(QtGui.QColor(0, 0, 0, 30))
-        shadow.setOffset(0, 0)
-        page.setGraphicsEffect(shadow)
-
         # Initialize the page
         self.populate_merchandise_stores()
-        self.update_merchandise_week_label()
+        self.update_merchandise_period_label()
 
         self.stackedWidget.addWidget(page)
         return page
 
-    def populate_merchandise_stores(self):
-        """Populate the merchandise store combo box with store names and IDs."""
-        try:
-            print("Attempting to populate merchandise stores...")
-            query = "SELECT store_id, store_name FROM Store"
-            results = connect(query, None)
-            
-            if results:
-                print(f"Found {len(results)} stores")
-                self.merchandise_store_combo.clear()
-                for store in results:
-                    print(f"Adding store: {store[1]} (ID: {store[0]})")
-                    self.merchandise_store_combo.addItem(store[1], store[0])  # Store name and ID
-            else:
-                print("No stores found in database")
-        except Exception as e:
-            print(f"Error populating merchandise stores: {e}")
-            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+    def toggle_merchandise_view(self):
+        """Toggle between weekly and monthly merchandise view."""
+        self.is_merchandise_weekly_view = not self.is_merchandise_weekly_view
+        self.merchandise_view_toggle.setText("Weekly View" if self.is_merchandise_weekly_view else "Monthly View")
+        self.update_merchandise_period_label()
 
-    def update_merchandise_week_label(self):
-        """Update the merchandise week label with the current week range."""
-        week_end = self.merchandise_current_week_start.addDays(6)
-        self.merchandise_week_label.setText(
-            f"{self.merchandise_current_week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
-        )
+    def update_merchandise_period_label(self):
+        """Update the merchandise period label based on the current view mode."""
+        if self.is_merchandise_weekly_view:
+            week_start = self.merchandise_current_date.addDays(-self.merchandise_current_date.dayOfWeek() + 1)
+            week_end = week_start.addDays(6)
+            self.merchandise_period_label.setText(
+                f"{week_start.toString('MMM d')} - {week_end.toString('MMM d, yyyy')}"
+            )
+        else:
+            self.merchandise_period_label.setText(self.merchandise_current_date.toString('MMMM yyyy'))
         self.load_merchandise_history()
 
-    def merchandise_previous_week(self):
-        """Navigate to the previous week in merchandise history."""
-        self.merchandise_current_week_start = self.merchandise_current_week_start.addDays(-7)
-        self.update_merchandise_week_label()
+    def merchandise_previous_period(self):
+        """Navigate to the previous period (week or month) in merchandise view."""
+        if self.is_merchandise_weekly_view:
+            self.merchandise_current_date = self.merchandise_current_date.addDays(-7)
+        else:
+            self.merchandise_current_date = self.merchandise_current_date.addMonths(-1)
+        self.update_merchandise_period_label()
 
-    def merchandise_next_week(self):
-        """Navigate to the next week in merchandise history."""
-        self.merchandise_current_week_start = self.merchandise_current_week_start.addDays(7)
-        self.update_merchandise_week_label()
+    def merchandise_next_period(self):
+        """Navigate to the next period (week or month) in merchandise view."""
+        if self.is_merchandise_weekly_view:
+            self.merchandise_current_date = self.merchandise_current_date.addDays(7)
+        else:
+            self.merchandise_current_date = self.merchandise_current_date.addMonths(1)
+        self.update_merchandise_period_label()
 
     def merchandise_show_calendar(self):
-        """Show calendar dialog to select a date for merchandise history."""
+        """Show calendar dialog to select a date for merchandise view."""
         calendar = QtWidgets.QCalendarWidget()
-        calendar.setSelectedDate(self.merchandise_current_week_start)
+        calendar.setSelectedDate(self.merchandise_current_date)
         
         dialog = QtWidgets.QDialog()
         dialog.setWindowTitle("Select Date")
@@ -2774,20 +2453,23 @@ class Ui_OwnerDialog(object):
         layout.addWidget(buttons)
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            selected_date = calendar.selectedDate()
-            self.merchandise_current_week_start = selected_date.addDays(-selected_date.dayOfWeek() + 1)
-            self.update_merchandise_week_label()
+            self.merchandise_current_date = calendar.selectedDate()
+            self.update_merchandise_period_label()
 
     def load_merchandise_history(self):
-        """Load the merchandise history for the selected store and week."""
+        """Load the merchandise history for the selected store and period."""
         store_id = self.merchandise_store_combo.currentData()
         if not store_id:
-            print("No store selected")
             return
 
         try:
-            print(f"Loading merchandise history for store {store_id}")
-            week_end = self.merchandise_current_week_start.addDays(6)
+            # Calculate start and end dates based on view mode
+            if self.is_merchandise_weekly_view:
+                start_date = self.merchandise_current_date.addDays(-self.merchandise_current_date.dayOfWeek() + 1)
+                end_date = start_date.addDays(6)
+            else:
+                start_date = QtCore.QDate(self.merchandise_current_date.year(), self.merchandise_current_date.month(), 1)
+                end_date = start_date.addMonths(1).addDays(-1)
             
             query = """
                 SELECT 
@@ -2801,69 +2483,66 @@ class Ui_OwnerDialog(object):
                 FROM merchandise m
                 JOIN employee emp ON m.employee_id = emp.employee_id
                 WHERE m.store_id = %s 
-                AND m.merchandise_date BETWEEN %s AND %s
+                AND DATE(m.merchandise_date) BETWEEN %s AND %s
                 ORDER BY m.merchandise_date DESC
             """
             data = (
                 store_id,
-                self.merchandise_current_week_start.toPyDate(),
-                week_end.toPyDate()
+                start_date.toPyDate(),
+                end_date.toPyDate()
             )
-            print(f"Executing query with data: {data}")
             results = connect(query, data)
 
+            # Disconnect the cellChanged signal temporarily
+            self.merchandise_table.cellChanged.disconnect()
+            
+            self.merchandise_table.setRowCount(0)
             if results:
-                print(f"Found {len(results)} merchandise records")
-                # Disconnect the cellChanged signal temporarily
-                self.merchandise_table.cellChanged.disconnect()
-                
-                self.merchandise_table.setRowCount(len(results))
-                for row, record in enumerate(results):
+                for row_data in results:
+                    row = self.merchandise_table.rowCount()
+                    self.merchandise_table.insertRow(row)
+                    
                     # ID (hidden)
-                    id_item = QtWidgets.QTableWidgetItem(str(record[0]))
+                    id_item = QtWidgets.QTableWidgetItem(str(row_data[0]))
                     id_item.setFlags(id_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.merchandise_table.setItem(row, 0, id_item)
                     
                     # Date
-                    date_item = QtWidgets.QTableWidgetItem(str(record[1]))
+                    date_item = QtWidgets.QTableWidgetItem(str(row_data[1]))
                     date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.merchandise_table.setItem(row, 1, date_item)
                     
                     # Type
-                    type_item = QtWidgets.QTableWidgetItem(record[2])
+                    type_item = QtWidgets.QTableWidgetItem(row_data[2])
                     self.merchandise_table.setItem(row, 2, type_item)
                     
                     # Quantity
-                    quantity_item = QtWidgets.QTableWidgetItem(str(record[3]))
+                    quantity_item = QtWidgets.QTableWidgetItem(str(row_data[3]))
                     self.merchandise_table.setItem(row, 3, quantity_item)
                     
                     # Unit Price
-                    price_item = QtWidgets.QTableWidgetItem(f"${record[4]:.2f}")
+                    price_item = QtWidgets.QTableWidgetItem(f"${row_data[4]:.2f}")
                     self.merchandise_table.setItem(row, 4, price_item)
                     
                     # Total
-                    total_item = QtWidgets.QTableWidgetItem(f"${record[5]:.2f}")
+                    total_item = QtWidgets.QTableWidgetItem(f"${row_data[5]:.2f}")
                     total_item.setFlags(total_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.merchandise_table.setItem(row, 5, total_item)
                     
                     # Employee
-                    employee_item = QtWidgets.QTableWidgetItem(record[6])
+                    employee_item = QtWidgets.QTableWidgetItem(row_data[6])
                     employee_item.setFlags(employee_item.flags() & ~QtCore.Qt.ItemIsEditable)
                     self.merchandise_table.setItem(row, 6, employee_item)
 
-                # Hide the ID column
-                self.merchandise_table.setColumnHidden(0, True)
-                
-                # Reconnect the cellChanged signal
-                self.merchandise_table.cellChanged.connect(self.calculate_merchandise_total)
-                
-                # Calculate and display total
-                self.calculate_merchandise_total()
-            else:
-                print("No merchandise records found")
-                self.merchandise_table.setRowCount(0)
-                self.merchandise_total_label.setText("Total Value: $0.00")
-
+            # Hide the ID column
+            self.merchandise_table.setColumnHidden(0, True)
+            
+            # Reconnect the cellChanged signal
+            self.merchandise_table.cellChanged.connect(self.calculate_merchandise_total)
+            
+            # Calculate and display total
+            self.calculate_merchandise_total()
+            
         except Exception as e:
             print(f"Error loading merchandise history: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load merchandise history: {e}")
@@ -5631,6 +5310,25 @@ class Ui_OwnerDialog(object):
                     self.close_store_combo.setCurrentIndex(0)
         except Exception as e:
             print(f"Error populating close stores: {e}")
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def populate_merchandise_stores(self):
+        """Populate the merchandise store combo box with store names and IDs."""
+        try:
+            print("Attempting to populate merchandise stores...")
+            query = "SELECT store_id, store_name FROM Store"
+            results = connect(query, None)
+            
+            if results:
+                print(f"Found {len(results)} stores")
+                self.merchandise_store_combo.clear()
+                for store in results:
+                    print(f"Adding store: {store[1]} (ID: {store[0]})")
+                    self.merchandise_store_combo.addItem(store[1], store[0])  # Store name and ID
+            else:
+                print("No stores found in database")
+        except Exception as e:
+            print(f"Error populating merchandise stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
 
 
