@@ -114,6 +114,26 @@ BEGIN
     END IF;
 END//
 
+CREATE TRIGGER before_payroll_insert 
+BEFORE INSERT ON Payroll
+FOR EACH ROW
+BEGIN
+    IF NEW.bonuses < 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Bonuses cannot be negative';
+    END IF;
+END//
+
+CREATE TRIGGER before_payroll_update
+BEFORE UPDATE ON Payroll
+FOR EACH ROW
+BEGIN
+    IF NEW.bonuses < 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Bonuses cannot be negative';
+    END IF;
+END//
+
 DELIMITER ;
 
 DELIMITER //
