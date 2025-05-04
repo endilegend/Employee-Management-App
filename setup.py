@@ -13,30 +13,35 @@ DATA_FILES = [
 ]
 OPTIONS = {
     'argv_emulation': False,
-    'packages': ['PyQt5', 'mysql.connector'],
+    'iconfile': 'icon.icns',
+    'packages': ['PyQt5'],
     'includes': [
+        'PyQt5',
         'PyQt5.QtCore',
         'PyQt5.QtGui',
         'PyQt5.QtWidgets',
         'mysql.connector',
+        'pkg_resources',
+        'packaging',
+        'platformdirs',
         'jaraco.text',
         'jaraco.functools',
         'jaraco.context',
         'more_itertools',
-        'autocommand',
-        'pkg_resources'
+        'autocommand'
     ],
-    'iconfile': 'icon.jpg',
+    'excludes': ['tkinter'],
     'plist': {
         'CFBundleName': 'EMS',
-        'CFBundleDisplayName': 'Employee Management System',
-        'CFBundleGetInfoString': "Employee Management System",
-        'CFBundleIdentifier': "com.ems.app",
-        'CFBundleVersion': "1.0.0",
-        'CFBundleShortVersionString': "1.0.0",
+        'CFBundleDisplayName': 'EMS',
+        'CFBundleExecutable': 'EMS',
+        'CFBundleIdentifier': 'com.ems.app',
+        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': '1.0.0',
         'NSHighResolutionCapable': True,
-        'NSRequiresAquaSystemAppearance': False,
-        'NSHumanReadableCopyright': "Copyright © 2024, All Rights Reserved"
+        'NSPrincipalClass': 'NSApplication',
+        'LSMinimumSystemVersion': '10.10',
+        'NSHumanReadableCopyright': 'Copyright © 2024, All Rights Reserved'
     }
 }
 
@@ -46,13 +51,4 @@ setup(
     data_files=DATA_FILES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
-    install_requires=[
-        'PyQt5',
-        'mysql-connector-python',
-        'jaraco.text',
-        'jaraco.functools',
-        'jaraco.context',
-        'more_itertools',
-        'autocommand'
-    ]
 ) 

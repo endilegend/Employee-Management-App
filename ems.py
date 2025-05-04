@@ -22,7 +22,7 @@ class EMSApplication(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("EMS")  # Set the application name for the Dock
-    app.setWindowIcon(QIcon("clwbeach.jpg"))  # Set the Dock icon
+    app.setWindowIcon(QIcon("icon.icns"))  # Use the .icns file for Dock and window icon
     main_window = EMSApplication()
     main_window.show()
 
