@@ -3417,7 +3417,7 @@ class Ui_ManagerDialog(object):  # Updated class name
 
         # Role selection
         self.role_combo = QtWidgets.QComboBox()
-        self.role_combo.addItems(["employee", "manager"])  # Exclude "owner"
+        self.role_combo.addItems(["employee"])  # Manager can only create employees
         self.role_combo.setStyleSheet(input_style)
         self.role_combo.currentTextChanged.connect(self._update_bonus_field)
         role_label = QtWidgets.QLabel("Role")
@@ -3819,7 +3819,7 @@ class Ui_ManagerDialog(object):  # Updated class name
             except ValueError:
                 raise ValueError("Invalid hourly rate")
 
-            # Get user role
+            # Get user role and verify it's an employee
             query = "SELECT role FROM employee WHERE employee_id = %s"
             data = (user_id,)
             results = connect(query, data)
@@ -3827,18 +3827,18 @@ class Ui_ManagerDialog(object):  # Updated class name
                 raise Exception("User not found")
 
             role = results[0][0]
-            if role == "employee":
-                try:
-                    # Store bonus percentage as is with 2 decimal precision
-                    bonus_value = Decimal(bonus).quantize(Decimal('0.01'))
-                    if bonus_value < 0:
-                        raise ValueError("Bonus percentage cannot be negative")
-                except ValueError as e:
-                    if "cannot be negative" in str(e):
-                        raise e
-                    raise ValueError("Bonus percentage must be a number")
-            else:
-                bonus_value = Decimal('1.00')
+            if role != "employee":
+                raise ValueError("You can only edit employee accounts")
+
+            try:
+                # Store bonus percentage as is with 2 decimal precision
+                bonus_value = Decimal(bonus).quantize(Decimal('0.01'))
+                if bonus_value < 0:
+                    raise ValueError("Bonus percentage cannot be negative")
+            except ValueError as e:
+                if "cannot be negative" in str(e):
+                    raise e
+                raise ValueError("Bonus percentage must be a number")
 
             # Update database
             query = """
@@ -3847,6 +3847,7 @@ class Ui_ManagerDialog(object):  # Updated class name
                     bonus_percentage = %s,
                     hourlyRate = %s
                 WHERE employee_id = %s
+                AND role = 'employee'
             """
             data = (password, str(bonus_value), str(hourly_rate), user_id)
             success = connect(query, data)
@@ -3870,11 +3871,22 @@ class Ui_ManagerDialog(object):  # Updated class name
             if not user_id:
                 raise ValueError("Please select a user")
 
+            # Verify the user is an employee
+            query = "SELECT role FROM employee WHERE employee_id = %s"
+            data = (user_id,)
+            results = connect(query, data)
+            if not results:
+                raise Exception("User not found")
+
+            role = results[0][0]
+            if role != "employee":
+                raise ValueError("You can only delete employee accounts")
+
             # Confirm deletion
             reply = QtWidgets.QMessageBox.question(
                 None,
                 'Confirm Deletion',
-                'Are you sure you want to delete this user? This will remove their personal information but keep their associated records.',
+                'Are you sure you want to delete this employee? This will remove their personal information but keep their associated records.',
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
                 QtWidgets.QMessageBox.No
             )
@@ -3886,7 +3898,7 @@ class Ui_ManagerDialog(object):  # Updated class name
                     "merchandise",
                     "clockTable",
                     "employee_close",
-                    "Bonuses"
+                    "Payroll"
                 ]
 
                 for table in tables_to_update:
@@ -3895,27 +3907,28 @@ class Ui_ManagerDialog(object):  # Updated class name
                     connect(query, data)
 
                 # Now delete the user
-                query = "DELETE FROM employee WHERE employee_id = %s"
+                query = "DELETE FROM employee WHERE employee_id = %s AND role = 'employee'"
                 data = (user_id,)
                 success = connect(query, data)
 
                 if success:
-                    QtWidgets.QMessageBox.information(None, "Success", "User deleted successfully")
+                    QtWidgets.QMessageBox.information(None, "Success", "Employee deleted successfully")
                     # Refresh user lists
                     self._populate_user_combos()
                 else:
-                    raise Exception("Failed to delete user")
+                    raise Exception("Failed to delete employee")
 
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", str(e))
 
     def _populate_user_combos(self):
-        """Populate the user combo boxes with all users."""
+        """Populate the user combo boxes with all users except owners."""
         try:
             query = """
                 SELECT employee_id, firstName, lastName, userName, role 
                 FROM employee 
-                ORDER BY role, lastName, firstName
+                WHERE role = 'employee'
+                ORDER BY lastName, firstName
             """
             results = connect(query, None)
 
@@ -3926,10 +3939,9 @@ class Ui_ManagerDialog(object):  # Updated class name
 
                 # Add users to both combo boxes
                 for user in results:
-                    if user[4] != "owner":  # Filter out owners
-                        display_text = f"{user[1]} {user[2]} ({user[3]}) - {user[4]}"
-                        self.edit_user_combo.addItem(display_text, user[0])
-                        self.delete_user_combo.addItem(display_text, user[0])
+                    display_text = f"{user[1]} {user[2]} ({user[3]}) - {user[4]}"
+                    self.edit_user_combo.addItem(display_text, user[0])
+                    self.delete_user_combo.addItem(display_text, user[0])
         except Exception as e:
             print(f"Error populating user combos: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load users: {e}")
