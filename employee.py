@@ -583,10 +583,9 @@ class Ui_Dialog(object):
         total_amount = Decimal(str(reg_out)).quantize(Decimal('0.01'))
         register_diff = (total_amount - Decimal(str(reg_in_amount))).quantize(Decimal('0.01'))
         
-        # Calculate bonus based on the formula: (reg_out - reg_in) * (1 + bonus_percentage/100)
+        # Calculate bonus based on the formula: (reg_out - reg_in) * (bonus_percentage/100)
         if register_diff > 0:
-            bonus_multiplier = (Decimal('1') + (Decimal(str(bonus_percentage)) / Decimal('100'))).quantize(Decimal('0.01'))
-            bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+            bonus = (register_diff * (Decimal(str(bonus_percentage)) / Decimal('100'))).quantize(Decimal('0.01'))
         else:
             bonus = Decimal('0.00')
         

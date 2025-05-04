@@ -1341,8 +1341,7 @@ class Ui_ManagerDialog(object):  # Updated class name
                         hours_worked = Decimal(str(time_diff.total_seconds() / 3600)).quantize(Decimal('0.01'))
                         wages = (hours_worked * hourly_rate).quantize(Decimal('0.01'))
                         register_diff = (reg_out - reg_in).quantize(Decimal('0.01'))
-                        bonus_multiplier = (Decimal('1') + (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
-                        bonus = Decimal('0') if register_diff <= 0 else (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                        bonus = Decimal('0') if register_diff <= 0 else (register_diff * (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
                         
                         # Update or create payroll record
                         payroll_check_query = """
@@ -1376,7 +1375,7 @@ class Ui_ManagerDialog(object):  # Updated class name
                                 
                                 old_wages = (old_hours * hourly_rate).quantize(Decimal('0.01'))
                                 old_register_diff = (old_reg_out - old_reg_in).quantize(Decimal('0.01'))
-                                old_bonus = Decimal('0') if old_register_diff <= 0 else (old_register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                                old_bonus = Decimal('0') if old_register_diff <= 0 else (old_register_diff * (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
                                 
                                 # Update payroll by removing old values and adding new ones
                                 payroll_update_query = """
@@ -4579,8 +4578,7 @@ class Ui_ManagerDialog(object):  # Updated class name
                     # Calculate bonus
                     bonus_percentage = Decimal(str(row_data[2])).quantize(Decimal('0.01'))
                     if register_diff > 0:
-                        bonus_multiplier = (Decimal('1') + (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
-                        bonus = (register_diff * bonus_multiplier).quantize(Decimal('0.01'))
+                        bonus = (register_diff * (bonus_percentage / Decimal('100'))).quantize(Decimal('0.01'))
                     else:
                         bonus = Decimal('0.00')
 
