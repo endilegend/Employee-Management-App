@@ -1947,6 +1947,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def expenses_previous_period(self):
         """Navigate to the previous period (week or month) in expenses view."""
+        if self._is_current_month(self.expenses_current_date):
+            return
         if self.is_expenses_weekly_view:
             self.expenses_current_date = self.expenses_current_date.addDays(-7)
         else:
@@ -1998,6 +2000,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.expenses_current_date.year(), self.expenses_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             # Modify query based on store selection
             if store_id == -1:  # All Stores
@@ -2546,6 +2552,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def merchandise_previous_period(self):
         """Navigate to the previous period (week or month) in merchandise view."""
+        if self._is_current_month(self.merchandise_current_date):
+            return
         if self.is_merchandise_weekly_view:
             self.merchandise_current_date = self.merchandise_current_date.addDays(-7)
         else:
@@ -2597,6 +2605,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.merchandise_current_date.year(), self.merchandise_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             # Modify query based on store selection
             if store_id == -1:  # All Stores
@@ -3035,6 +3047,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def close_previous_period(self):
         """Navigate to the previous period (week or month) in close history."""
+        if self._is_current_month(self.close_current_date):
+            return
         if self.is_close_weekly_view:
             self.close_current_date = self.close_current_date.addDays(-7)
         else:
@@ -3086,6 +3100,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.close_current_date.year(), self.close_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             # Modify query based on store selection
             if store_id == -1:  # All Stores
@@ -4479,6 +4497,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def payroll_previous_period(self):
         """Navigate to the previous period (week or month) in payroll view."""
+        if self._is_current_month(self.payroll_current_date):
+            return
         if self.is_payroll_weekly_view:
             self.payroll_current_date = self.payroll_current_date.addDays(-7)
         else:
@@ -4532,6 +4552,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.payroll_current_date.year(), self.payroll_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             if employee_id == -1:  # All Employees
                 # Get all employees' hourly rates and bonus percentages
@@ -5038,6 +5062,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def profit_previous_period(self):
         """Navigate to the previous period (week or month) in profit view."""
+        if self._is_current_month(self.profit_current_date):
+            return
         if self.is_weekly_view:
             self.profit_current_date = self.profit_current_date.addDays(-7)
         else:
@@ -5091,6 +5117,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.profit_current_date.year(), self.profit_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             # Get daily data from employee_close table
             if store_id == -1:  # All Stores
@@ -5753,6 +5783,8 @@ class Ui_ManagerDialog(object):  # Updated class name
 
     def invoice_previous_period(self):
         """Navigate to the previous period (week or month) in invoice view."""
+        if self._is_current_month(self.invoice_current_date):
+            return
         if self.is_invoice_weekly_view:
             self.invoice_current_date = self.invoice_current_date.addDays(-7)
         else:
@@ -5820,6 +5852,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             else:
                 start_date = QtCore.QDate(self.invoice_current_date.year(), self.invoice_current_date.month(), 1)
                 end_date = start_date.addMonths(1).addDays(-1)
+            # Clamp start_date
+            first_of_month = QtCore.QDate.currentDate().addDays(-QtCore.QDate.currentDate().day() + 1)
+            if start_date < first_of_month:
+                start_date = first_of_month
             
             # Modify query based on store selection
             if store_id == -1:  # All Stores
@@ -6187,6 +6223,10 @@ class Ui_ManagerDialog(object):  # Updated class name
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to export profit data: {e}")
+
+    def _is_current_month(self, qdate):
+        now = QtCore.QDate.currentDate()
+        return qdate.year() == now.year() and qdate.month() == now.month()
 
 
 # -----------------------------------------------------------------------------
