@@ -79,7 +79,7 @@ The application uses a MySQL database with the following structure:
 1. Start the application:
 
    ```bash
-   python login.py
+   python ems.py
    ```
 
 2. Login with your credentials:
