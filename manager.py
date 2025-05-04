@@ -1,6 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from sqlConnector import connect  # Import the database connection function
 from datetime import datetime  # Add datetime import
+import csv  # Add csv import
 
 
 class Ui_ManagerDialog(object):  # Updated class name
@@ -4368,6 +4369,26 @@ class Ui_ManagerDialog(object):  # Updated class name
         """)
         controls_layout.addWidget(self.payroll_refresh_btn)
 
+        # Add export button
+        self.payroll_export_btn = QtWidgets.QPushButton("Export to CSV")
+        self.payroll_export_btn.setFixedHeight(40)
+        self.payroll_export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #219a52;
+            }
+        """)
+        self.payroll_export_btn.clicked.connect(self.export_payroll_to_csv)
+        controls_layout.addWidget(self.payroll_export_btn)
+
         main_layout.addWidget(controls_container)
 
         # Payroll table
@@ -4907,6 +4928,26 @@ class Ui_ManagerDialog(object):  # Updated class name
             }
         """)
         controls_layout.addWidget(self.profit_refresh_btn)
+
+        # Add export button
+        self.profit_export_btn = QtWidgets.QPushButton("Export to CSV")
+        self.profit_export_btn.setFixedHeight(40)
+        self.profit_export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background-color: #219a52;
+            }
+        """)
+        self.profit_export_btn.clicked.connect(self.export_profit_to_csv)
+        controls_layout.addWidget(self.profit_export_btn)
 
         main_layout.addWidget(controls_container)
 
@@ -6059,6 +6100,93 @@ class Ui_ManagerDialog(object):  # Updated class name
         except Exception as e:
             print(f"Error populating expenses stores: {e}")
             QtWidgets.QMessageBox.critical(None, "Error", f"Failed to load stores: {e}")
+
+    def export_payroll_to_csv(self):
+        """Export payroll data to CSV file."""
+        try:
+            # Get file name from user
+            file_name, _ = QtWidgets.QFileDialog.getSaveFileName(
+                None,
+                "Save Payroll Data",
+                "",
+                "CSV Files (*.csv)"
+            )
+            
+            if not file_name:  # User cancelled
+                return
+                
+            # Add .csv extension if not present
+            if not file_name.endswith('.csv'):
+                file_name += '.csv'
+            
+            # Get headers from table
+            headers = []
+            for col in range(self.payroll_table.columnCount()):
+                headers.append(self.payroll_table.horizontalHeaderItem(col).text())
+            
+            # Open file and write data
+            with open(file_name, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)  # Write headers
+                
+                # Write data rows
+                for row in range(self.payroll_table.rowCount()):
+                    row_data = []
+                    for col in range(self.payroll_table.columnCount()):
+                        item = self.payroll_table.item(row, col)
+                        row_data.append(item.text() if item else '')
+                    writer.writerow(row_data)
+            
+            QtWidgets.QMessageBox.information(None, "Success", "Payroll data exported successfully")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to export payroll data: {e}")
+
+    def export_profit_to_csv(self):
+        """Export profit data to CSV file."""
+        try:
+            # Get file name from user
+            file_name, _ = QtWidgets.QFileDialog.getSaveFileName(
+                None,
+                "Save Profit Data",
+                "",
+                "CSV Files (*.csv)"
+            )
+            
+            if not file_name:  # User cancelled
+                return
+                
+            # Add .csv extension if not present
+            if not file_name.endswith('.csv'):
+                file_name += '.csv'
+            
+            # Get headers from table
+            headers = []
+            for col in range(self.profit_table.columnCount() - 1):  # Exclude the Details column
+                headers.append(self.profit_table.horizontalHeaderItem(col).text())
+            
+            # Open file and write data
+            with open(file_name, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)  # Write headers
+                
+                # Write data rows
+                for row in range(self.profit_table.rowCount()):
+                    row_data = []
+                    for col in range(self.profit_table.columnCount() - 1):  # Exclude the Details column
+                        item = self.profit_table.item(row, col)
+                        row_data.append(item.text() if item else '')
+                    writer.writerow(row_data)
+                
+                # Add total profit as the last row
+                total_text = self.total_profit_label.text()
+                writer.writerow([''])  # Empty row for spacing
+                writer.writerow([total_text])
+            
+            QtWidgets.QMessageBox.information(None, "Success", "Profit data exported successfully")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Error", f"Failed to export profit data: {e}")
 
 
 # -----------------------------------------------------------------------------
