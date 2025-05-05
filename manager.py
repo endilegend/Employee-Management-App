@@ -82,10 +82,10 @@ class Ui_ManagerDialog(object):  # Updated class name
         )
         bar_layout.addWidget(logo)
 
-        # Fetch owner name from database
+        # Fetch user name from database
         if self.employee_id:
             try:
-                print(f"Fetching owner name for employee_id: {self.employee_id}")  # Debug print
+                print(f"Fetching user name for employee_id: {self.employee_id}")  # Debug print
                 query = "SELECT firstName, lastName FROM employee WHERE employee_id = %s"
                 data = (self.employee_id,)
                 print(f"Executing query: {query} with data: {data}")  # Debug print
@@ -95,25 +95,25 @@ class Ui_ManagerDialog(object):  # Updated class name
                 if results and len(results) > 0:
                     employee = results[0]
                     self.owner_name = f"{employee[0]} {employee[1]}"
-                    print(f"Set owner name to: {self.owner_name}")  # Debug print
+                    print(f"Set user name to: {self.owner_name}")  # Debug print
                 else:
-                    self.owner_name = "Owner Name"
-                    print("No results found, using default owner name")  # Debug print
+                    self.owner_name = "User Name"
+                    print("No results found, using default user name")  # Debug print
             except Exception as e:
-                print(f"Error fetching owner name: {e}")  # Debug print
-                self.owner_name = "Owner Name"
+                print(f"Error fetching user name: {e}")  # Debug print
+                self.owner_name = "User Name"
         else:
-            self.owner_name = "Owner Name"
-            print("No employee_id provided, using default owner name")  # Debug print
+            self.owner_name = "User Name"
+            print("No employee_id provided, using default user name")  # Debug print
 
-        # Owner name label
+        # User name label
         self.owner_name_label = QtWidgets.QLabel(self.owner_name)
         self.owner_name_label.setAlignment(QtCore.Qt.AlignCenter)
         self.owner_name_label.setStyleSheet(
             """color: white; font-size: 16px; font-weight: bold;"""
         )
         bar_layout.addWidget(self.owner_name_label)
-        print(f"Added owner name label with text: {self.owner_name}")  # Debug print
+        print(f"Added user name label with text: {self.owner_name}")  # Debug print
 
         # Store name label
         self.store_name_label = QtWidgets.QLabel("Store Name")

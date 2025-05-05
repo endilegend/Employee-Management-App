@@ -110,7 +110,7 @@ class LoginForm(QWidget):
     # ------------------------------------------------------------------
     def check_password(self):
         """Validates credentials and routes to the proper page."""
-        # ----- 1) hard‑coded “lebron” backdoor -------------------------
+        # ----- 1) hard‑coded "lebron" backdoor -------------------------
         if (self.lineEdit_username.text() == "lebron" and
                 self.lineEdit_password.text() == "123084"):
             self.redirect_to_lebron()
@@ -160,7 +160,7 @@ class LoginForm(QWidget):
     def redirect_to_manager(self):
         page = QWidget()
         ui   = ManagerPage()
-        ui.setupUi(page)                            # manager page needed no extras
+        ui.setupUi(page, self.stacked_widget, self.employee_id)    # Pass both stacked_widget and employee_id
         self.stacked_widget.addWidget(page)
         self.stacked_widget.setCurrentWidget(page)
 
