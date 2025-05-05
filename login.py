@@ -113,6 +113,7 @@ class LoginForm(QWidget):
         # ----- 1) hard‑coded "lebron" backdoor -------------------------
         if (self.lineEdit_username.text() == "lebron" and
                 self.lineEdit_password.text() == "123084"):
+            self.clear_inputs()
             self.redirect_to_lebron()
             return
 
@@ -127,6 +128,7 @@ class LoginForm(QWidget):
             role             = results[0][5]          # change index if schema differs
 
             QMessageBox.information(self, "Login", "Login Successful")
+            self.clear_inputs()
 
             if role == 'owner':
                 self.redirect_to_owner()
@@ -139,6 +141,16 @@ class LoginForm(QWidget):
         else:
             self.play_error_audio()
             QMessageBox.warning(self, "Login Failed", "Invalid username or password.")
+
+    def clear_inputs(self):
+        """Clears the username and password input fields."""
+        self.lineEdit_username.clear()
+        self.lineEdit_password.clear()
+
+    def showEvent(self, event):
+        """Ensure input fields are cleared every time the login form is shown."""
+        self.clear_inputs()
+        super().showEvent(event)
 
     # ------------------------------------------------------------------
     # routing helpers
